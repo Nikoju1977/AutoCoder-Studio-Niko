@@ -14,16 +14,4 @@ Date : 7 novembre 2026
 ## Non vérifié / nécessite un environnement de déploiement
 
 - La navigation HTTP locale complète de Chromium a été bloquée par les règles de cet environnement de test. Les essais UI ci-dessus ont donc chargé le HTML/CSS/JS directement dans une page de test ; cela ne remplace pas un test de déploiement.
-- Le téléchargement et l'initialisation réels de **Pyodide** dans un Worker, puis les exécutions Python in-browser, n'ont pas été vérifiés de bout en bout. Pyodide nécessite l'accès au CDN pour le premier lancement. Les tests CPython des modèles n'équivalent pas à ce contrôle.
-- L'appel fournisseur OpenAI n'a pas été réalisé : aucune clé serveur n'était configurée. L'endpoint est optionnel, son intégration doit être testée en déploiement Vercel avec la configuration réelle.
-- L'installation de la PWA sous HTTPS et son fonctionnement hors ligne n'ont pas été vérifiés sur appareil physique.
-- Aucune publication GitHub ni Vercel n'a été effectuée.
-
-## Reproduction
-
-```bash
-npm test
-python -m http.server 4173
-```
-
-Dans un navigateur, ouvrir `http://localhost:4173`, puis vérifier l'exécution de `main.py`, les tests `test_main.py`, l'aperçu web, l'import/export et l'installation PWA sous HTTPS.
+- L���q�^
