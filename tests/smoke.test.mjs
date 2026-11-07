@@ -84,3 +84,15 @@ test('l’API de statut indique sans secrets les paramètres serveur manquants',
     if(prevToken===undefined)delete process.env.AUTOCODER_ACCESS_TOKEN;else process.env.AUTOCODER_ACCESS_TOKEN=prevToken;
   }
 });
+
+test('Vercel conserve l’anti-clickjacking de la page et autorise le seul aperçu intégré',()=>{
+  const routes=JSON.parse(text('vercel.json')).headers;
+  const root=routes.find(r=>r.source==='/');
+  const preview=routes.find(r=>r.source==='/preview.html');
+  const mainXfo=root.headers.find(h=>h.key==='X-Frame-Options');
+  assert.equal(mainXfo.value,'DENY');
+  assert.match(root.headers.find(h=>h.key==='Content-Security-Policy').value,/frame-ancestors 'none'/);
+  assert.equal(preview.headers.some(h=>h.key==='X-Frame-Options'),false);
+  assert.match(preview.headers.find(h=>h.key==='Content-Security-Policy').value,/frame-ancestors 'self'/);
+  assert.equal(routes[0].headers.some(h=>h.key==='X-Frame-Options'),false);
+});
