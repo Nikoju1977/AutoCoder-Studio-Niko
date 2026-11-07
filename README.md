@@ -69,3 +69,7 @@ Un test en navigateur est disponible via `npm run test:e2e` après installation 
 - `api/generate.mjs` — fonction serveur de génération IA (optionnelle).
 - `manifest.webmanifest`, `sw.js`, `icons/` — ressources PWA.
 - `vercel.json` — en-têtes de défense en profondeur.
+
+### Sécurité du déploiement Vercel
+
+La page principale interdit l'intégration en iframe (`X-Frame-Options: DENY` et `frame-ancestors 'none'`). Seul `/preview.html` peut être intégré depuis la même origine (`frame-ancestors 'self'`). Les deux iframes de prévisualisation restent sandboxées sans `allow-same-origin` et avec une CSP qui interdit les accès réseau.
