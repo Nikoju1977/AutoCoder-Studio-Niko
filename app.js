@@ -231,6 +231,21 @@
     }
     return {name:state.projectName,files,plan:Array.isArray(input.plan)?input.plan.map(String).slice(0,6):[],notes:String(input.notes||'')};
   }
+  async function checkServerStatus(){
+    const target=byId('server-status');
+    target.textContent='Vérification de la configuration serveur…';
+    try {
+      const response=await fetch('/api/status',{cache:'no-store'});
+      if(!response.ok)throw Error('Endpoint de diagnostic indisponible.');
+      const payload=await response.json();
+      target.textContent=payload.configured
+        ? 'Serveur IA configuré. Un jeton AutoCoder valide est indispensable pour générer.'
+        : 'Mode IA non activé : configurer OPENAI_API_KEY et AUTOCODER_ACCESS_TOKEN dans Vercel, puis redéployer. Le mode local reste opérationnel.';
+    } catch {
+      target.textContent='Impossible de vérifier le serveur IA. Le mode local reste disponible.';
+    }
+  }
+
   async function serverGenerate(prompt){
     if(!authToken)throw Error('Jeton absent : ouvre les réglages et renseigne le jeton serveur.');
     const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),65_000);
@@ -282,7 +297,7 @@
     const css=(state.files['style.css']||state.files['styles.css']||'').replace(/<\/style/gi,'<\\/style');
     const js=(state.files['script.js']||state.files['app.js']||'').replace(/<\/script/gi,'<\\/script');
     // Les scripts sont autorisés dans l'iframe isolée, mais aucun accès réseau ni origine partagée.
-    const csp=`<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; connect-src 'none'; object-src 'none'; form-action 'none'; base-uri 'none'; navigate-to 'none'">`;
+    const csp=`<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; connect-src 'none'; object-src 'none'; form-action 'none'; base-uri 'none'">`;
     const attached=`${csp}<style>${css}</style>`;
     let html=original.replace(/<link\b[^>]*href=["'](?:\.\/)?(?:style|styles)\.css["'][^>]*>/gi,'')
       .replace(/<script\b[^>]*src=["'](?:\.\/)?(?:script|app)\.js["'][^>]*><\/script>/gi,'');
@@ -290,7 +305,13 @@
     else html=attached+html;
     html=html.replace(/<\/body>/i,`<script>${js}</script></body>`);
     if(!/<script>/.test(html)&&js)html+=`<script>${js}</script>`;
-    byId('preview-frame').srcdoc=html;
+    // Une navigation vers un document distinct évite l'héritage de la CSP
+    // stricte de l'éditeur par un document srcdoc direct.
+    // Le conteneur et le contenu restent dans deux iframes sandboxées sans
+    // allow-same-origin, avec réseau désactivé dans leur CSP.
+    const frame=byId('preview-frame');
+    frame.onload=()=>frame.contentWindow?.postMessage({type:'autocoder-preview-content',html},'*');
+    frame.src='./preview.html';
     previewShown=true;byId('editor-area').classList.add('hidden');byId('preview-area').classList.remove('hidden');
     log('Aperçu web ouvert dans une iframe sans origine commune et sans accès réseau.','success','EXÉCUTEUR');
   }
@@ -430,10 +451,10 @@
       if((ev.ctrlKey||ev.metaKey)&&ev.key==='Enter'){ev.preventDefault();runPython('run');}
     });
     const dialog=byId('settings-dialog');
-    byId('btn-settings').addEventListener('click',()=>{updateMode();byId('settings-token').value=authToken;dialog.showModal();});
+    byId('btn-settings').addEventListener('click',()=>{updateMode();byId('settings-token').value=authToken;dialog.showModal();if(state.mode==='server')checkServerStatus();});
     byId('btn-close-settings').addEventListener('click',()=>dialog.close());
     byId('btn-cancel-settings').addEventListener('click',()=>dialog.close());
-    byId('settings-mode').addEventListener('change',()=>byId('server-fields').classList.toggle('hidden',byId('settings-mode').value!=='server'));
+    byId('settings-mode').addEventListener('change',()=>{const server=byId('settings-mode').value==='server';byId('server-fields').classList.toggle('hidden',!server);if(server)checkServerStatus();});
     byId('settings-form').addEventListener('submit',ev=>{
       ev.preventDefault();state.mode=byId('settings-mode').value==='server'?'server':'local';
       state.timeout=Number(byId('settings-timeout').value);authToken=byId('settings-token').value.trim().slice(0,256);

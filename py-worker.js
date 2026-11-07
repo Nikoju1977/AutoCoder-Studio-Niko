@@ -32,6 +32,8 @@ async function loadRuntime() {
       py.setStderr({batched: message => output(message,'stderr')});
       py.FS.mkdirTree(DIR);
       py.FS.chdir(DIR);
+      // Le répertoire virtuel du projet doit être importable par unittest.
+      py.runPython("import os, sys\n_autocoder_dir = os.getcwd()\nif _autocoder_dir not in sys.path: sys.path.insert(0, _autocoder_dir)");
       pyodide = py;
       reply({type:'ready'});
       return py;

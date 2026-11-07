@@ -10,7 +10,7 @@ Application web statique/PWA en français, fondée sur le design d'AutoCoder. Au
 - Pipeline à 4 étapes visibles : planification par règles/modèle ou IA serveur, génération de fichiers, exécution, contrôle. Ce sont des étapes d'application, **pas quatre agents LLM indépendants**.
 - Exécution Python dans un Web Worker via Pyodide WebAssembly **v0.25.1**. Journaux stdout/stderr, commande d'arrêt (termination du worker) et limite de temps **d'exécution** 10/20/30 secondes. Chargement initial limité à 90 secondes.
 - Tests Python `unittest` pour `main.py`/`test_main.py` et affichage du vrai nombre de tests/erreurs.
-- Prévisualisation HTML/CSS/JS dans une iframe `sandbox="allow-scripts"`, avec CSP restrictive (sans accès réseau, origine partagée, formulaires et popups).
+- Prévisualisation HTML/CSS/JS dans deux iframes sandboxées via un hôte dédié ; la CSP de l’éditeur reste stricte (sans accès réseau, origine partagée, formulaires et popups).
 - Contrôles statiques heuristiques des principaux risques (ce n'est **pas** un audit complet).
 - PWA installable depuis un hébergement HTTPS. La coquille web est mise en cache ; **premier chargement Pyodide nécessite Internet**. L'exécution hors-ligne de Python n'est pas garantie.
 - Option de génération IA **réelle** via API Vercel, sous authentification par jeton. La clé du fournisseur reste côté serveur. Le mode local fonctionne indépendamment de cette configuration.
@@ -28,6 +28,8 @@ Ouvrir `http://localhost:4173` dans un navigateur moderne. Ne pas double-cliquer
 La première exécution Python télécharge Pyodide depuis `cdn.jsdelivr.net`. Si Internet/CDN est indisponible, l'éditeur, les modèles et les aperçus web restent utilisables.
 
 ## Déploiement Vercel et mode IA facultatif
+
+La route `GET /api/status` indique uniquement si les variables nécessaires sont configurées ; elle ne retourne jamais leur contenu. La fenêtre Réglages l’utilise pour afficher clairement lorsque le mode IA est indisponible. Sans clé API valide, la génération IA reste désactivée tandis que la génération locale fonctionne.
 
 1. Déployer **le dossier complet** comme projet Vercel (pas uniquement `index.html`). Les pages statiques seront servies normalement et `api/generate.mjs` en fonction Node.
 2. Dans les paramètres d'environnement Vercel, définir :
@@ -52,7 +54,9 @@ Le jeton d'accès est gardé uniquement en mémoire de l'onglet : il doit être 
 
 ## Vérifier le projet
 
-`npm test` : neuf tests Node.js sans dépendance externe. Voir `TESTS_VERIFIES.md` pour la portée exacte des contrôles, les tests Python réalisés et les limites de vérification.
+Un test en navigateur est disponible via `npm run test:e2e` après installation de Playwright et de Chromium. Il nécessite que le site soit accessible à l’URL donnée par `AUTOCODER_URL` (par défaut `http://127.0.0.1:4173`).
+
+`npm test` : douze tests Node.js sans dépendance externe. Voir `TESTS_VERIFIES.md` pour la portée exacte des contrôles, les tests Python réalisés et les limites de vérification.
 
 ## Fichiers
 
@@ -60,6 +64,8 @@ Le jeton d'accès est gardé uniquement en mémoire de l'onglet : il doit être 
 - `styles.css` — design et adaptations PC/mobile/tablette.
 - `app.js` — gestion des projets, templates, logs, analyse, aperçu et API optionnelle.
 - `py-worker.js` — runtime Python isolé du thread UI, tests et timeout orchestré par le thread principal.
+- `preview.html`, `preview-host.js` — hôte et iframe de prévisualisation isolés.
+- `api/status.mjs` — statut de configuration IA sans divulgation de secrets.
 - `api/generate.mjs` — fonction serveur de génération IA (optionnelle).
 - `manifest.webmanifest`, `sw.js`, `icons/` — ressources PWA.
 - `vercel.json` — en-têtes de défense en profondeur.

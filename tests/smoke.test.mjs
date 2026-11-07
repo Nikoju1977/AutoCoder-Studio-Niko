@@ -4,6 +4,7 @@ import {readFileSync,existsSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {dirname,resolve} from 'node:path';
 import handler from '../api/generate.mjs';
+import statusHandler from '../api/status.mjs';
 const base=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const text=name=>readFileSync(resolve(base,name),'utf8');
 const request=async(method,token,body)=>{
@@ -12,7 +13,7 @@ const request=async(method,token,body)=>{
   return res;
 };
 test('la coque contient tous les fichiers de la PWA',()=>{
-  for(const name of ['index.html','styles.css','app.js','py-worker.js','sw.js','manifest.webmanifest','icons/icon.svg','icons/icon-192.png','icons/icon-512.png']){
+  for(const name of ['index.html','styles.css','app.js','py-worker.js','preview.html','preview-host.js','sw.js','manifest.webmanifest','icons/icon.svg','icons/icon-192.png','icons/icon-512.png']){
     assert.equal(existsSync(resolve(base,name)),true,name);
   }
 });
@@ -52,4 +53,34 @@ test('l’API IA interprète une réponse JSON structurée valide sans exposer d
     const res=await request('POST','example-only-strong-token-456',{prompt:'Une fonction simple',files:[]});
     assert.equal(res.statusCode,200);assert.equal(res.body.files[0].name,'main.py');assert.equal(JSON.stringify(res.body).includes('fake-key'),false);
   }finally{globalThis.fetch=original;}
+});
+
+test('unittest peut importer main.py dans le répertoire virtuel Pyodide',()=>{
+  const worker=text('py-worker.js');
+  assert.match(worker,/sys\.path\.insert\(0, _autocoder_dir\)/);
+  assert.match(worker,/py\.FS\.chdir\(DIR\)/);
+});
+test('l’aperçu dispose de son propre document CSP et de deux iframes isolées',()=>{
+  assert.match(text('app.js'),/frame\.src='\.\/preview\.html'/);
+  assert.match(text('preview-host.js'),/target\.srcdoc = event\.data\.html/);
+  assert.match(text('preview-host.js'),/event\.source !== window\.parent/);
+  assert.match(text('preview.html'),/connect-src 'none'/);
+  assert.match(text('preview.html'),/sandbox="allow-scripts"/);
+  assert.doesNotMatch(text('preview.html'),/allow-same-origin/);
+});
+test('l’API de statut indique sans secrets les paramètres serveur manquants',()=>{
+  const prevKey=process.env.OPENAI_API_KEY;
+  const prevToken=process.env.AUTOCODER_ACCESS_TOKEN;
+  delete process.env.OPENAI_API_KEY;
+  delete process.env.AUTOCODER_ACCESS_TOKEN;
+  const res={statusCode:200,headers:{},setHeader(k,v){this.headers[k]=v;return this;},status(v){this.statusCode=v;return this;},json(v){this.body=v;return this;}};
+  try{
+    statusHandler({method:'GET'},res);
+    assert.equal(res.statusCode,200);
+    assert.equal(res.body.configured,false);
+    assert.equal(JSON.stringify(res.body).includes('OPENAI_API_KEY'),false);
+  }finally{
+    if(prevKey===undefined)delete process.env.OPENAI_API_KEY;else process.env.OPENAI_API_KEY=prevKey;
+    if(prevToken===undefined)delete process.env.AUTOCODER_ACCESS_TOKEN;else process.env.AUTOCODER_ACCESS_TOKEN=prevToken;
+  }
 });

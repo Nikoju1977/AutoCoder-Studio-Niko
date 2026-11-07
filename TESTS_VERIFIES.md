@@ -27,3 +27,12 @@ python -m http.server 4173
 ```
 
 Dans un navigateur, ouvrir `http://localhost:4173`, puis vérifier l'exécution de `main.py`, les tests `test_main.py`, l'aperçu web, l'import/export et l'installation PWA sous HTTPS.
+
+## Mise à jour 2.0.2 — corrections vérifiées (7 novembre 2026)
+
+- Module Python : ajout du répertoire de travail Pyodide au chemin d'import `sys.path`, pour permettre à `unittest` de trouver `main.py`.
+- Aperçu : le rendu utilise un hôte distinct `preview.html` et une iframe intérieure `sandbox="allow-scripts"` ; la CSP stricte de l'éditeur ne bloque plus les styles et scripts du projet. Aucun `allow-same-origin` n'est utilisé, et le réseau reste interdit dans la prévisualisation.
+- Mode IA : ajout de `GET /api/status`, qui indique seulement si les secrets serveur requis existent. Aucun secret n'est retourné. Le mode IA demeure indisponible tant que la configuration Vercel n'est pas fournie.
+- PWA : cache mis à jour pour intégrer les nouvelles ressources de prévisualisation.
+- Tests : 12/12 contrôles Node.js réussis ; une batterie navigateur Playwright a vérifié la génération, les tests réels Pyodide en Web Worker (calculatrice 5, gestionnaire de tâches 3, analyse de texte 3, CSV 2), l'exécution de `main.py`, le CSS, le bouton JavaScript de l'aperçu, l'import/export JSON, l'analyse statique, le diagnostic de l'API et l'affichage mobile à 390 px.
+- Ces contrôles ont été exécutés sur une copie locale du code corrigé. La route IA externe avec une vraie clé n'a pas pu être testée, car aucun identifiant serveur n'est configuré. L'installation PWA sur appareil physique reste à vérifier séparément.
