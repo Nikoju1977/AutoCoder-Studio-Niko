@@ -4,7 +4,7 @@ Application web statique/PWA en français, fondée sur le design d'AutoCoder. Au
 
 ## Fonctions réellement implémentées
 
-- Editeur de code multifiche, navigation et création/suppression de fichiers (`.py`, `.html`, `.css`, `.js`, `.md`, `.json`).
+- Editeur de code multifiche, téléchargement individuel, navigation et création/suppression de fichiers (`.py`, `.html`, `.css`, `.js`, `.md`, `.json`).
 - Sauvegarde automatique dans le `localStorage` du navigateur ; import et export d'un projet JSON.
 - Génération **locale** de projets prédéfinis : calculatrice Python, gestionnaire de tâches, analyse de texte, traitement CSV, exemple Python et site web responsive. **Ce mode n'utilise pas d'IA** : une demande hors de ces modèles déclenche le modèle Python générique.
 - Pipeline à 4 étapes visibles : planification par règles/modèle ou IA serveur, génération de fichiers, exécution, contrôle. Ce sont des étapes d'application, **pas quatre agents LLM indépendants**.
@@ -49,6 +49,10 @@ Le jeton d'accès est gardé uniquement en mémoire de l'onglet : il doit être 
 - Les vérifications statiques par motifs, les tests unitaires fournis et la prévisualisation web ne prouvent pas que n'importe quel projet généré est sans erreur, ni sécurisé.
 - Le navigateur ne peut pas exécuter directement des applications Python nécessitant Docker, Node.js, accès matériel ou modules natifs non compatibles Pyodide.
 - La génération IA peut produire du code incorrect ; son résultat doit être relu et testé avant toute publication.
+
+## Vérifier le projet
+
+`npm test` : neuf tests Node.js sans dépendance externe. Voir `TESTS_VERIFIES.md` pour la portée exacte des contrôles, les tests Python réalisés et les limites de vérification.
 
 ## Fichiers
 
