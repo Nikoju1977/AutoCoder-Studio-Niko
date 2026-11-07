@@ -23,4 +23,64 @@ test('les contrôles principaux sont présents',()=>{
 });
 test('la CSP de l’interface interdit les scripts distants et les objets',()=>{
   assert.match(text('index.html'),/script-src 'self'/);
-  as���q�^
+  assert.match(text('index.html'),/object-src 'none'/);
+});
+test('le Worker utilise Pyodide dans un thread séparé',()=>{
+  assert.match(text('app.js'),/new Worker\('\.\/py-worker\.js'\)/);
+  assert.match(text('py-worker.js'),/loadPyodide/);
+});
+test('l’API IA refuse les méthodes autres que POST',async()=>{
+  const res=await request('GET',null,{});assert.equal(res.statusCode,405);
+});
+test('l’API IA refuse si les paramètres secrets manquent',async()=>{
+  const old=process.env.OPENAI_API_KEY;const tok=process.env.AUTOCODER_ACCESS_TOKEN;
+  delete process.env.OPENAI_API_KEY;delete process.env.AUTOCODER_ACCESS_TOKEN;
+  try {const res=await request('POST',null,{});assert.equal(res.statusCode,503);}finally{if(old)process.env.OPENAI_API_KEY=old;if(tok)process.env.AUTOCODER_ACCESS_TOKEN=tok;}
+});
+test('l’API IA exige l’authentification',async()=>{
+  process.env.OPENAI_API_KEY='fake-key';process.env.AUTOCODER_ACCESS_TOKEN='example-only-strong-token-456';
+  const res=await request('POST','mauvais-jeton',{prompt:'Bonjour',files:[]});assert.equal(res.statusCode,401);
+});
+test('l’API IA refuse les données invalides',async()=>{
+  process.env.OPENAI_API_KEY='fake-key';process.env.AUTOCODER_ACCESS_TOKEN='example-only-strong-token-456';
+  const res=await request('POST','example-only-strong-token-456',{prompt:'',files:[]});assert.equal(res.statusCode,400);
+});
+test('l’API IA interprète une réponse JSON structurée valide sans exposer de clé',async()=>{
+  const original=globalThis.fetch;
+  globalThis.fetch=async()=>({ok:true,json:async()=>({output:[{content:[{type:'output_text',text:JSON.stringify({plan:['Architecture'],notes:'À tester',files:[{name:'main.py',content:'print(42)'}]})}]}]})});
+  try{
+    process.env.OPENAI_API_KEY='fake-key';process.env.AUTOCODER_ACCESS_TOKEN='example-only-strong-token-456';
+    const res=await request('POST','example-only-strong-token-456',{prompt:'Une fonction simple',files:[]});
+    assert.equal(res.statusCode,200);assert.equal(res.body.files[0].name,'main.py');assert.equal(JSON.stringify(res.body).includes('fake-key'),false);
+  }finally{globalThis.fetch=original;}
+});
+
+test('unittest peut importer main.py dans le répertoire virtuel Pyodide',()=>{
+  const worker=text('py-worker.js');
+  assert.match(worker,/sys\.path\.insert\(0, _autocoder_dir\)/);
+  assert.match(worker,/py\.FS\.chdir\(DIR\)/);
+});
+test('l’aperçu dispose de son propre document CSP et de deux iframes isolées',()=>{
+  assert.match(text('app.js'),/frame\.src='\.\/preview\.html'/);
+  assert.match(text('preview-host.js'),/target\.srcdoc = event\.data\.html/);
+  assert.match(text('preview-host.js'),/event\.source !== window\.parent/);
+  assert.match(text('preview.html'),/connect-src 'none'/);
+  assert.match(text('preview.html'),/sandbox="allow-scripts"/);
+  assert.doesNotMatch(text('preview.html'),/allow-same-origin/);
+});
+test('l’API de statut indique sans secrets les paramètres serveur manquants',()=>{
+  const prevKey=process.env.OPENAI_API_KEY;
+  const prevToken=process.env.AUTOCODER_ACCESS_TOKEN;
+  delete process.env.OPENAI_API_KEY;
+  delete process.env.AUTOCODER_ACCESS_TOKEN;
+  const res={statusCode:200,headers:{},setHeader(k,v){this.headers[k]=v;return this;},status(v){this.statusCode=v;return this;},json(v){this.body=v;return this;}};
+  try{
+    statusHandler({method:'GET'},res);
+    assert.equal(res.statusCode,200);
+    assert.equal(res.body.configured,false);
+    assert.equal(JSON.stringify(res.body).includes('OPENAI_API_KEY'),false);
+  }finally{
+    if(prevKey===undefined)delete process.env.OPENAI_API_KEY;else process.env.OPENAI_API_KEY=prevKey;
+    if(prevToken===undefined)delete process.env.AUTOCODER_ACCESS_TOKEN;else process.env.AUTOCODER_ACCESS_TOKEN=prevToken;
+  }
+});
