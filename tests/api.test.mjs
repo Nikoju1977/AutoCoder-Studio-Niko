@@ -72,7 +72,16 @@ test('l’API valide les limites du prompt, des fichiers et de la taille de requ
     assert.equal((await callGenerate({ body: { prompt: 'ok', files: [] } })).statusCode, 400);
     assert.equal((await callGenerate({ body: { prompt: 'Créer', files: [{ name: '../secret.py', content: 'x' }] } })).statusCode, 400);
     assert.equal((await callGenerate({ headers: { 'content-length': '80001' } })).statusCode, 413);
-    assert.equal((await callGenerate({ body: JSON.stringify({ prompt: 'Créer', files: [] }), headers: {} })).statusCode, 200);
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => ({ ok: true, json: async () => validModelResponse() });
+    try {
+      const validJson = await callGenerate({ body: JSON.stringify({ prompt: 'Créer', files: [] }), headers: {} });
+      assert.equal(validJson.statusCode, 200);
+      assert.equal(validJson.body.files[0].name, 'main.py');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });
 
