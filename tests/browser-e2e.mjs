@@ -77,6 +77,13 @@ try{
   const mobileFile=mobilePage.locator('#file-list .file-item').filter({hasText:'test_main.py'});
   await mobileFile.click();
   assert.equal(await mobilePage.locator('#current-file-label').innerText(),'test_main.py','Fichier ouvrable au toucher');
+  const entry=mobilePage.locator('#file-list .file-entry').filter({hasText:'test_main.py'});
+  const deleteControl=entry.locator('button.delete-file');
+  assert.equal(await deleteControl.getAttribute('aria-label'),'Supprimer test_main.py');
+  assert.equal(await deleteControl.isVisible(),true,'Suppression séparée visible sur mobile');
+  assert.ok(await deleteControl.evaluate(el=>el.getBoundingClientRect().width>=44&&el.getBoundingClientRect().height>=44),
+    'Cible tactile de suppression de 44x44 minimum');
+  assert.equal(await entry.locator('button.file-item button').count(),0,'Aucun bouton imbriqué dans le bouton ouvrir');
   assert.ok(await mobilePage.locator('#code-editor').isVisible(),'Éditeur accessible sur mobile');
   const sizes=await mobilePage.evaluate(()=>({body:document.body.scrollWidth,viewport:innerWidth}));
   assert.ok(sizes.body<=sizes.viewport+1,'Débordement horizontal mobile: '+JSON.stringify(sizes));

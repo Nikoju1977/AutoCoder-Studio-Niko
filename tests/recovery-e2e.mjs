@@ -32,8 +32,10 @@ try {
     };
   },RECOVERY_KEY);
 
-  await page.locator('#file-list .file-item').filter({hasText:'test_main.py'})
-    .locator('.delete-file').click();
+  const protectedDelete=page.locator('#file-list .file-entry').filter({hasText:'test_main.py'}).locator('button.delete-file');
+  assert.equal(await protectedDelete.getAttribute('aria-label'),'Supprimer test_main.py');
+  await protectedDelete.focus();
+  await page.keyboard.press('Enter'); // Suppression au clavier, sauvegarde indisponible.
   await page.waitForFunction(()=>document.querySelector('#toast').textContent.includes('Suppression annulée'));
   assert.equal(await page.locator('#file-list .file-item').count(),2,'Deletion must not proceed without backup');
 

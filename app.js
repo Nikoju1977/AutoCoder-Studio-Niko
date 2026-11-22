@@ -177,12 +177,14 @@
   function renderFiles(){
     const root=byId('file-list');root.replaceChildren();
     Object.keys(state.files).sort((a,b)=>a.localeCompare(b)).forEach(name=>{
+      const entry=document.createElement('div');entry.className='file-entry';
       const el=document.createElement('button');el.type='button';el.className='file-item'+(state.activeFile===name?' active':'');el.dataset.ext=fileExt(name);el.title='Ouvrir '+name;el.setAttribute('aria-label','Ouvrir '+name);
+      if(state.activeFile===name)el.setAttribute('aria-current','true');
       const ico=document.createElement('span');ico.className='file-symbol';ico.textContent=({py:'Py',html:'<>',css:'{}',js:'JS',md:'Md',json:'{}'})[fileExt(name)]||'•';
       const label=document.createElement('span');label.className='file-name';label.textContent=name;
-      const del=document.createElement('span');del.className='delete-file';del.textContent='×';del.title='Supprimer '+name;del.setAttribute('aria-label','Supprimer '+name);
-      del.addEventListener('click',ev=>{ev.stopPropagation();deleteFile(name);});
-      el.append(ico,label,del);el.addEventListener('click',()=>openFile(name));root.append(el);
+      const del=document.createElement('button');del.type='button';del.className='delete-file';del.textContent='×';del.title='Supprimer '+name;del.setAttribute('aria-label','Supprimer '+name);
+      del.addEventListener('click',()=>deleteFile(name));
+      el.append(ico,label);el.addEventListener('click',()=>openFile(name));entry.append(el,del);root.append(entry);
     });updateSummary();
   }
   function renderTabs(){

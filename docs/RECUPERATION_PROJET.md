@@ -37,3 +37,7 @@ Un scénario de navigateur Chromium avec erreur de quota simulée et un scénari
 - Aucun compte, cloud, télémétrie ou synchronisation automatique de cette copie de secours n'est ajouté.
 
 **À confirmer sur appareils réels :** restauration d'un projet après fermeture forcée, conservation du dernier fichier modifié, téléchargements Safari, disponibilité du stockage et chargement PWA.
+
+## Navigation dans l’explorateur
+
+L'ouverture d'un fichier et sa suppression disposent désormais de **deux boutons indépendants**. Les deux fonctions sont accessibles au clavier (Tab, Entrée ou Espace) et au toucher. La suppression demande toujours confirmation et s'annule si la sauvegarde préalable échoue. Sur petit écran, la cible tactile de suppression mesure au moins 44 × 44 pixels (à valider aussi sur appareils physiques).
