@@ -105,6 +105,7 @@
   }
   function persist() {
     clearTimeout(saveTimer);
+    saveTimer=null;
     try {
       const current=localStorage.getItem(STORAGE_KEY);
       if(current){
@@ -583,7 +584,7 @@
     editor.addEventListener('scroll',()=>{byId('line-numbers').scrollTop=editor.scrollTop;});
     editor.addEventListener('keydown',ev=>{
       if(ev.key==='Tab'){ev.preventDefault();const start=editor.selectionStart;const end=editor.selectionEnd;editor.setRangeText('    ',start,end,'end');changeFile(editor.value);return;}
-      if((ev.ctrlKey||ev.metaKey)&&ev.key.toLowerCase()==='s'){ev.preventDefault();persist();toast('Projet enregistré localement.');}
+      if((ev.ctrlKey||ev.metaKey)&&ev.key.toLowerCase()==='s'){ev.preventDefault();if(persist())toast('Projet enregistré localement.');}
       if((ev.ctrlKey||ev.metaKey)&&ev.key==='Enter'){ev.preventDefault();runPython('run');}
     });
     const dialog=byId('settings-dialog');
