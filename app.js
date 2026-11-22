@@ -227,7 +227,9 @@
   function deleteFile(name){
     if(Object.keys(state.files).length<=1){toast('Conserve au moins un fichier.',true);return;}
     if(!window.confirm(`Supprimer définitivement « ${name} » du projet local ?`))return;
-    if(!preserveCurrent())toast('Copie de secours indisponible : exporte le projet JSON.',true);
+    if(!preserveCurrent()){
+      toast('Suppression annulée : copie de secours impossible. Exporte le projet JSON.',true);return;
+    }
     delete state.files[name];state.opened=state.opened.filter(n=>n!==name);
     if(state.activeFile===name){const next=Object.keys(state.files)[0];openFile(next);}
     else{renderFiles();renderTabs();scheduleSave();}
@@ -299,7 +301,9 @@
       const files={};
       for(const [name,content] of entries){if(!ACCEPTED.test(name)||typeof content!=='string'||content.length>MAX_FILE_SIZE)throw Error('Fichier invalide : '+name);files[name]=content;}
       if(!window.confirm('Importer ce projet et remplacer les fichiers présents ? Exporte d’abord les fichiers actuels si nécessaire.'))return;
-      if(!preserveCurrent())toast('Copie de secours impossible : exporte une sauvegarde du projet actuel.',true);
+      if(!preserveCurrent()){
+        toast('Import annulé : copie de secours impossible. Exporte le projet actuel.',true);return;
+      }
       state.files=files;state.projectName=String(payload.projectName||'projet-importe').slice(0,50);
       state.opened=Object.keys(files).slice(0,8);openFile(state.opened[0]);resetAgents();
       log('Projet importé : '+entries.length+' fichier(s).','success');toast('Projet importé.');
@@ -389,7 +393,9 @@
     if(prompt.length>4000){toast('Demande limitée à 4 000 caractères.',true);return;}
     if(busy){toast('Termine ou arrête l’exécution en cours.',true);return;}
     if(!window.confirm('Générer un nouveau projet ? Les fichiers existants seront remplacés. Exporte-les si nécessaire.'))return;
-    if(!preserveCurrent())toast('Copie de secours indisponible : exporte le projet JSON si nécessaire.',true);
+    if(!preserveCurrent()){
+      toast('Génération annulée : copie de secours impossible. Exporte le projet JSON.',true);return;
+    }
     byId('btn-generate').disabled=true;resetAgents();
     agentStatus('architect','running','Analyse de la demande');log('Demande : '+prompt,'agent','ARCHITECTE');
     try{

@@ -24,4 +24,5 @@ jobs:
         run: |
           python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/autocoder-http.log 2>&1 &
           sleep 2
+          node tests/recovery-e2e.mjs
           npm run test:e2e
