@@ -15,6 +15,16 @@ Application web statique/PWA en français, fondée sur le design d'AutoCoder. Au
 - PWA installable depuis un hébergement HTTPS. La coquille web est mise en cache ; **premier chargement Pyodide nécessite Internet**. L'exécution hors-ligne de Python n'est pas garantie.
 - Option de génération IA **réelle** via API Vercel, sous authentification par jeton. La clé du fournisseur reste côté serveur. Le mode local fonctionne indépendamment de cette configuration.
 
+## Lot Modern Web Guidance (22 novembre 2026)
+
+- **Agents de développement** : voir `AGENTS.md` pour rechercher et récupérer les guides officiels de [GoogleChrome/modern-web-guidance](https://github.com/GoogleChrome/modern-web-guidance) avec la CLI (Node.js + réseau nécessaires).
+- **Analyse web dans AutoCoder** : `web-guidance.js` signale des problèmes possibles d'accessibilité HTML, de sécurité JavaScript, de scripts bloquants et d'ergonomie CSS. L'analyse est **locale, hors réseau et heuristique** ; elle ne lance ni la CLI Google ni un navigateur de test.
+- **Génération IA serveur** : `api/web-standards.mjs` ajoute des consignes web de base aux requêtes concernant HTML/CSS/JS/PWA. Il ne télécharge **aucun guide officiel en temps réel**.
+- **Mobile** : les onglets de fichiers sont de nouveau accessibles dans l'explorateur sur les petits écrans ; taille de police des champs adaptée pour éviter le zoom automatique sur iPhone.
+- **Tests** : `npm test` inclut les contrôles du module web. La CI vérifie également la syntaxe JS. Le test sur des appareils physiques reste à réaliser.
+
+Limites : ces contrôles ne remplacent pas Lighthouse, axe-core, un audit WCAG, des tests Safari/Firefox/Chrome, ni des mesures réelles de performance. Le mode IA reste dépendant de la configuration optionnelle du serveur et d'un fournisseur accessible.
+
 ## Lancer localement
 
 Dans le répertoire du projet :
