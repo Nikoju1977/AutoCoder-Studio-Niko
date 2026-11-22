@@ -83,3 +83,10 @@ Un test en navigateur est disponible via `npm run test:e2e` après installation 
 ### Sécurité du déploiement Vercel
 
 La page principale interdit l'intégration en iframe (`X-Frame-Options: DENY` et `frame-ancestors 'none'`). Seul `/preview.html` peut être intégré depuis la même origine (`frame-ancestors 'self'`). Les deux iframes de prévisualisation restent sandboxées sans `allow-same-origin` et avec une CSP qui interdit les accès réseau.
+
+
+## Reprise du code après fermeture — 22 novembre 2026
+
+AutoCoder conserve désormais, si le stockage du navigateur le permet, une copie précédente des **fichiers de code et du nom du projet**. Dans les **Réglages**, la section repliable « Récupération de code après interruption » permet de la restaurer après confirmation ou de l'exporter en JSON. Les sauvegardes sont espacées pour limiter les écritures et une copie est tentée avant import, suppression de fichier ou génération. Les téléchargements disposent d'un lien manuel pendant environ cinq minutes.
+
+La copie n'inclut pas les jetons saisis dans les réglages, mais **conserve tout secret inscrit dans le code en clair**. Aucun stockage distant n'est créé. En cas de quota dépassé ou de purge Safari, la récupération peut échouer : conserve des exports JSON indépendants. Cette révision est enregistrée sur GitHub ; aucune validation de son fonctionnement sur iPhone n'est revendiquée. [Procédure complète](docs/RECUPERATION_PROJET.md).
