@@ -1,5 +1,6 @@
 /** Optional AI generation endpoint for Vercel (Node.js runtime). */
 import { createHash, timingSafeEqual } from 'node:crypto';
+import { webStandardsForPrompt } from './web-standards.mjs';
 
 const MAX_REQUEST_BYTES = 80_000;
 const MAX_PROMPT_LENGTH = 4_000;
@@ -144,7 +145,7 @@ export default async function handler(req, res) {
         model: process.env.OPENAI_MODEL || 'gpt-4.1-mini',
         store: false,
         max_output_tokens: 12_000,
-        instructions: 'Tu es un assistant de développement logiciel exigeant et francophone. Génère des fichiers exécutables et cohérents, sans prétendre avoir exécuté les tests. Retourne un plan concis, des notes utiles et le contenu complet de chaque fichier demandé. N’inclus aucun secret.',
+        instructions: ['Tu es un assistant de développement logiciel exigeant et francophone. Génère des fichiers exécutables et cohérents, sans prétendre avoir exécuté les tests. Retourne un plan concis, des notes utiles et le contenu complet de chaque fichier demandé. N’inclus aucun secret.', webStandardsForPrompt(parsedBody.prompt, validation.context)].filter(Boolean).join('\n\n'),
         input: JSON.stringify({ demande: parsedBody.prompt, projetExistant: validation.context }),
         text: { format: { type: 'json_schema', name: 'autocoder_project', strict: true, schema } },
       }),
