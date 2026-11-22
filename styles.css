@@ -25,3 +25,14 @@ button:focus-visible,textarea:focus-visible,input:focus-visible,select:focus-vis
   .command-row textarea,.editor-area textarea{font-size:16px}
   .footer{padding-bottom:env(safe-area-inset-bottom,0px)}
 }
+
+/* Studio Niko · récupération du code : actions tactiles, aucune donnée envoyée */
+.ac-recovery{border:1px solid #385876;border-radius:12px;background:#101f35;margin:18px 0;padding:12px 15px;color:#cfdeef}
+.ac-recovery summary{cursor:pointer;font-weight:750;color:#bde8e8;min-height:44px;display:flex;align-items:center;line-height:1.35}
+.ac-recovery p{font-size:12px;line-height:1.65;margin:8px 0;color:#b6cce0}
+.ac-recovery-actions{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:12px}
+.ac-recovery-actions button{min-height:44px;flex:1 1 160px;white-space:normal}
+.ac-recovery-actions button:disabled{opacity:.5;cursor:not-allowed}
+.download-fallback-wrap{padding:0 clamp(12px,3vw,28px);background:#111c30}
+.download-fallback-wrap a:not([hidden]){display:inline-block;max-width:100%;margin:7px 0;padding:10px 13px;min-height:44px;color:#d1fdf4;border:1px solid #3a958f;border-radius:10px;background:#183a3e;text-decoration:none;white-space:normal;overflow-wrap:anywhere;font-size:12px}
+.download-fallback-wrap a:not([href]){opacity:.65;pointer-events:none}
