@@ -65,6 +65,7 @@ try {
     {key:RECOVERY_KEY,value:backup});
   await ui.reload({waitUntil:'load'});
   await ui.locator('#btn-settings').click();
+  await ui.locator('#recovery-panel > summary').click();
   assert.equal(await ui.locator('#btn-restore-previous').isEnabled(),true,
     'Previous local copy is detected');
   await ui.locator('#btn-restore-previous').click();
