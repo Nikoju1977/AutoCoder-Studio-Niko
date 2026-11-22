@@ -38,19 +38,19 @@ test('l’API IA refuse si les paramètres secrets manquent',async()=>{
   try {const res=await request('POST',null,{});assert.equal(res.statusCode,503);}finally{if(old)process.env.OPENAI_API_KEY=old;if(tok)process.env.AUTOCODER_ACCESS_TOKEN=tok;}
 });
 test('l’API IA exige l’authentification',async()=>{
-  process.env.OPENAI_API_KEY='fake-key';process.env.AUTOCODER_ACCESS_TOKEN='example-only-strong-token-456';
+  process.env.OPENAI_API_KEY='fake-key';process.env.AUTOCODER_ACCESS_TOKEN='example-only-strong-token-for-tests-456';
   const res=await request('POST','mauvais-jeton',{prompt:'Bonjour',files:[]});assert.equal(res.statusCode,401);
 });
 test('l’API IA refuse les données invalides',async()=>{
-  process.env.OPENAI_API_KEY='fake-key';process.env.AUTOCODER_ACCESS_TOKEN='example-only-strong-token-456';
-  const res=await request('POST','example-only-strong-token-456',{prompt:'',files:[]});assert.equal(res.statusCode,400);
+  process.env.OPENAI_API_KEY='fake-key';process.env.AUTOCODER_ACCESS_TOKEN='example-only-strong-token-for-tests-456';
+  const res=await request('POST','example-only-strong-token-for-tests-456',{prompt:'',files:[]});assert.equal(res.statusCode,400);
 });
 test('l’API IA interprète une réponse JSON structurée valide sans exposer de clé',async()=>{
   const original=globalThis.fetch;
   globalThis.fetch=async()=>({ok:true,json:async()=>({output:[{content:[{type:'output_text',text:JSON.stringify({plan:['Architecture'],notes:'À tester',files:[{name:'main.py',content:'print(42)'}]})}]}]})});
   try{
-    process.env.OPENAI_API_KEY='fake-key';process.env.AUTOCODER_ACCESS_TOKEN='example-only-strong-token-456';
-    const res=await request('POST','example-only-strong-token-456',{prompt:'Une fonction simple',files:[]});
+    process.env.OPENAI_API_KEY='fake-key';process.env.AUTOCODER_ACCESS_TOKEN='example-only-strong-token-for-tests-456';
+    const res=await request('POST','example-only-strong-token-for-tests-456',{prompt:'Une fonction simple',files:[]});
     assert.equal(res.statusCode,200);assert.equal(res.body.files[0].name,'main.py');assert.equal(JSON.stringify(res.body).includes('fake-key'),false);
   }finally{globalThis.fetch=original;}
 });

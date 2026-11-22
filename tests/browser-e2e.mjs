@@ -73,6 +73,11 @@ try{
   const mobile=await browser.newContext({viewport:{width:390,height:844},isMobile:true});
   const mobilePage=await mobile.newPage();
   await mobilePage.goto(base,{waitUntil:'load'});
+  assert.equal(await mobilePage.locator('#file-list').isVisible(),true,'Explorateur accessible sur mobile');
+  const mobileFile=mobilePage.locator('#file-list .file-item').filter({hasText:'test_main.py'});
+  await mobileFile.click();
+  assert.equal(await mobilePage.locator('#current-file-label').innerText(),'test_main.py','Fichier ouvrable au toucher');
+  assert.ok(await mobilePage.locator('#code-editor').isVisible(),'Éditeur accessible sur mobile');
   const sizes=await mobilePage.evaluate(()=>({body:document.body.scrollWidth,viewport:innerWidth}));
   assert.ok(sizes.body<=sizes.viewport+1,'Débordement horizontal mobile: '+JSON.stringify(sizes));
   await mobile.close();

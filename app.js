@@ -345,6 +345,14 @@
       else root.append(diagnostic('good','Balise viewport','Mise à l’échelle mobile déclarée.'));
       if(/on(click|load|error)\s*=/.test(html)){root.append(diagnostic('warn','HTML : attribut événementiel','Préférer addEventListener aux gestionnaires inline.'));warnings++;}
     }
+    const guide = globalThis.AutoCoderWebGuidance?.audit?.(state.files);
+    if(guide && guide.inspected.length){
+      for(const issue of guide.issues){
+        root.append(diagnostic(issue.level==='error'?'bad':'warn','Web : '+issue.title,issue.detail));
+        warnings++;
+      }
+      root.append(diagnostic('good','Web Guidance local v'+guide.version,guide.inspected.length+' fichier(s) inspecté(s). Règles heuristiques embarquées ; la CLI officielle Google n’est pas exécutée.'));
+    }
     if(!warnings)root.append(diagnostic('good','Aucune alerte heuristique','Aucun motif signalé par ces contrôles limités. Les tests réels restent indispensables.'));
     agentStatus('critic','done',warnings?warnings+' alerte(s) statique(s)':'Analyse statique terminée');
     log(`Analyse statique : ${warnings} alerte(s), ${files.length} fichier(s).`,warnings?'warning':'success','CONTRÔLEUR');

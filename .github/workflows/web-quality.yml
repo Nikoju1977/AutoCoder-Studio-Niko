@@ -1,0 +1,40 @@
+name: Web quality checks
+
+on:
+  push:
+    paths:
+      - 'app.js'
+      - 'web-guidance.js'
+      - 'api/**'
+      - 'index.html'
+      - 'tests/**'
+      - '.github/workflows/web-quality.yml'
+  pull_request:
+    paths:
+      - 'app.js'
+      - 'web-guidance.js'
+      - 'api/**'
+      - 'index.html'
+      - 'tests/**'
+      - '.github/workflows/web-quality.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check JavaScript syntax
+        run: |
+          node --check app.js
+          node --check web-guidance.js
+          node --check api/generate.mjs
+          node --check api/web-standards.mjs
+      - name: Run unit and API tests
+        run: npm test

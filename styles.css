@@ -14,3 +14,14 @@ button:focus-visible,textarea:focus-visible,input:focus-visible,select:focus-vis
 @media(max-width:380px){.brand-sub{display:none}.command-row .main-action{font-size:0}.command-row .main-action span{font-size:21px}.editor-toolbar-actions .btn{font-size:0}.editor-toolbar-actions .btn span{font-size:14px}.editor-toolbar-actions .btn.stop{font-size:9px}}
 
 .download-current{font-size:15px;min-width:24px;min-height:24px;background:transparent;border-color:#2a3e5b;color:#a0b5d5}.editor-toolbar .download-current:hover{background:#223b59}@media(max-width:620px){.side .panel-title.second{display:flex}.editor-toolbar .btn{padding:5px 6px;font-size:10px}.download-current{padding:0 3px}.editor-toolbar-title{gap:7px}}
+
+/* Navigation des fichiers et saisie sur iPhone/Android : ne pas cacher l'explorateur. */
+@media(max-width:620px){
+  .side .panel-title.second{display:flex}
+  .side .project-name{display:flex;padding:7px 12px}
+  .side .files{display:flex;flex:none;overflow-x:auto;overflow-y:hidden;gap:4px;padding:3px 8px 8px;max-height:60px;scrollbar-width:thin;-webkit-overflow-scrolling:touch}
+  .side .file-item{flex:0 0 auto;max-width:152px;width:auto;min-height:40px;padding:8px;font-size:11px;white-space:nowrap}
+  .side .file-item .delete-file{opacity:1}
+  .command-row textarea,.editor-area textarea{font-size:16px}
+  .footer{padding-bottom:env(safe-area-inset-bottom,0px)}
+}
