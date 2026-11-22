@@ -36,3 +36,12 @@ button:focus-visible,textarea:focus-visible,input:focus-visible,select:focus-vis
 .download-fallback-wrap{padding:0 clamp(12px,3vw,28px);background:#111c30}
 .download-fallback-wrap a:not([hidden]){display:inline-block;max-width:100%;margin:7px 0;padding:10px 13px;min-height:44px;color:#d1fdf4;border:1px solid #3a958f;border-radius:10px;background:#183a3e;text-decoration:none;white-space:normal;overflow-wrap:anywhere;font-size:12px}
 .download-fallback-wrap a:not([href]){opacity:.65;pointer-events:none}
+
+/* Garde l'explorateur réellement cliquable lorsque le viewport desktop est bas.
+   Le panneau complet défile au lieu de laisser le pied de panneau recouvrir les fichiers. */
+@media (min-width:621px){
+  .side{overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain}
+  .side .agent-list,.side .panel-title,.side .project-name,.side .side-footer{flex-shrink:0}
+  .side .files{flex:1 0 100px;min-height:100px;scrollbar-width:thin}
+  .side .file-item .delete-file{display:inline-grid;place-items:center;min-width:24px;min-height:24px}
+}
