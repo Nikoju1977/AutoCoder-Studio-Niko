@@ -45,18 +45,23 @@ function syncFiles(files) {
   if (!files || typeof files !== 'object' || Array.isArray(files)) throw new Error('Fichiers absents.');
   const entries = Object.entries(files);
   if (entries.length > 30) throw new Error('Trop de fichiers Python.');
+  // Valider l'ensemble de l'import AVANT toute suppression dans le FS Pyodide.
+  for (const [name,source] of entries) {
+    if (!FILENAME.test(name) || typeof source!=='string' || source.length>120_000) throw new Error('Fichier non autorisé : '+name);
+  }
+  // Une exécution ultérieure ne doit pas réimporter un module supprimé du projet.
+  // Invalider les modules des anciens ET des nouveaux fichiers.
+  const modulesToClear = [...new Set([...previousFiles,...entries.map(([name])=>name)])]
+    .map(name=>name.slice(0,-3));
   for (const name of previousFiles) {
     try {pyodide.FS.unlink(DIR+'/'+name);} catch (_) {/* possible suppression antérieure */}
   }
   previousFiles=[];
   for (const [name,source] of entries) {
-    if (!FILENAME.test(name) || typeof source!=='string' || source.length>120_000) throw new Error('Fichier non autorisé : '+name);
     pyodide.FS.writeFile(DIR+'/'+name,source,{encoding:'utf8'});
     previousFiles.push(name);
   }
-  // Réinitialiser les modules du projet pour ne pas réutiliser un ancien code.
-  const stems = entries.map(([name])=>name.slice(0,-3));
-  const list = JSON.stringify(stems);
+  const list = JSON.stringify(modulesToClear);
   pyodide.runPython(`import sys, importlib\nfor _autocoder_name in ${list}:\n    sys.modules.pop(_autocoder_name, None)\nimportlib.invalidate_caches()`);
 }
 function testSource() {
