@@ -21,6 +21,14 @@ Le raccourci `Ctrl+S` / `Cmd+S` enregistre l'état local sans annoncer faussemen
 
 Les exports de projet et les téléchargements de fichiers proposent un **lien manuel** durant environ cinq minutes, pour les navigateurs qui bloquent les téléchargements déclenchés après un traitement. Le téléchargement automatique n'est pas une preuve que le fichier a réellement été enregistré : vérifie toujours ton dossier de téléchargements.
 
+## Protection contre la perte de code
+
+La **suppression de fichier**, l'**import remplaçant le projet** et la **génération d'un nouveau projet** exigent maintenant une copie locale de secours valide. Si le navigateur refuse cette copie (stockage plein ou désactivé, quota dépassé, projet trop volumineux), l'opération est **annulée sans remplacer ni supprimer les fichiers courants**.
+
+Le message d'alerte invite à exporter d'abord les fichiers en JSON. L'export manuel n'ajoute pas de garantie de synchronisation cloud : son téléchargement doit être vérifié par l'utilisateur.
+
+Un scénario de navigateur Chromium avec erreur de quota simulée et un scénario de restauration inverse sont ajoutés aux contrôles automatisés. **Ces scénarios ne remplacent pas la validation sur un appareil iPhone/Android réel ni l'audit d'un navigateur en production.**
+
 ## Ce qui ne change pas
 
 - Le moteur Python reste un Worker séparé utilisant Pyodide 0.25.1 ; la première utilisation nécessite l'accès au CDN. Le mode hors ligne ne promet pas un runtime Python prêt.
