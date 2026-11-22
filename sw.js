@@ -1,6 +1,6 @@
 /* La coque de l'application est consultable hors-ligne après un premier chargement.
    Pyodide provient d'un CDN : première exécution Python = connexion nécessaire. */
-const CACHE = 'studio-niko-autocoder-v2.3.0-recovery';
+const CACHE = 'studio-niko-autocoder-v2.3.1-offline-fallback';
 const SHELL = ['./','./index.html','./styles.css','./app.js','./web-guidance.js','./studio-niko-core.js','./py-worker.js','./preview.html','./preview-host.js','./manifest.webmanifest','./icons/icon.svg','./icons/icon-192.png','./icons/icon-512.png'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting()));
@@ -16,5 +16,12 @@ self.addEventListener('fetch', event => {
   event.respondWith(fetch(req).then(res=>{
     if(res.ok&&res.type==='basic'){const copy=res.clone();caches.open(CACHE).then(cache=>cache.put(req,copy)).catch(()=>{});}
     return res;
-  }).catch(()=>caches.match(req).then(cached=>cached||caches.match('./index.html'))));
+  }).catch(async()=>{
+    const cached=await caches.match(req);
+    if(cached)return cached;
+    // Seules les navigations peuvent utiliser la page d'accueil de secours.
+    // Un JS/CSS/manifest absent ne doit jamais recevoir du HTML à la place.
+    if(req.mode==='navigate')return (await caches.match('./index.html'))||Response.error();
+    return Response.error();
+  }));
 });
