@@ -50,12 +50,85 @@
   let logView = 'logs';
   const agents = ['architect','coder','executor','critic'];
 
+  const RECOVERY_KEY='studio-niko-autocoder-files-previous-v1';
+  const BACKUP_MIN_INTERVAL=120000;
+  const MAX_BACKUP_CHARS=2400000;
+  let lastBackupWriteAt=0;
+  let lastDownloadUrl=null;
+  let lastDownloadTimeout=null;
+  function validProjectFiles(files){
+    if(!files||typeof files!=='object'||Array.isArray(files))return false;
+    const entries=Object.entries(files);
+    return entries.length>=1&&entries.length<=MAX_FILES&&
+      entries.every(([name,source])=>ACCEPTED.test(name)&&typeof source==='string'&&source.length<=MAX_FILE_SIZE);
+  }
+  function recoverySnapshot(){
+    try{
+      const raw=localStorage.getItem(RECOVERY_KEY);
+      if(!raw||raw.length>MAX_BACKUP_CHARS)return null;
+      const box=JSON.parse(raw);
+      if(!box||box.schema!==1||!validProjectFiles(box.files)||
+        typeof box.projectName!=='string'||typeof box.savedAt!=='string')return null;
+      return box;
+    }catch(_){return null;}
+  }
+  function showRecoveryStatus(){
+    const btn=byId('btn-restore-previous');
+    const exportBtn=byId('btn-export-previous');
+    const status=byId('recovery-status');
+    if(!btn||!exportBtn||!status)return;
+    const last=recoverySnapshot();
+    btn.disabled=!last;exportBtn.disabled=!last;
+    status.textContent=last?
+      'Copie locale disponible : '+new Date(last.savedAt).toLocaleString('fr-FR')+
+      ' · '+Object.keys(last.files).length+' fichier(s). Sans synchronisation.':
+      'Aucune copie précédente disponible sur cet appareil. Exporte régulièrement ton projet JSON.';
+  }
+  function savePrevious(snapshot,force=false){
+    if(!validProjectFiles(snapshot?.files))return false;
+    const stamp=Date.now();
+    if(!force&&stamp-lastBackupWriteAt<BACKUP_MIN_INTERVAL)return false;
+    const box={schema:1,savedAt:new Date().toISOString(),
+      projectName:String(snapshot.projectName||'projet').slice(0,50),
+      files:snapshot.files};
+    try{
+      const raw=JSON.stringify(box);
+      if(raw.length>MAX_BACKUP_CHARS)return false;
+      localStorage.setItem(RECOVERY_KEY,raw);
+      lastBackupWriteAt=stamp;
+      showRecoveryStatus();
+      return true;
+    }catch(_){return false;}
+  }
+  function preserveCurrent(){
+    return savePrevious({projectName:state.projectName,files:clone(state.files)},true);
+  }
   function persist() {
     clearTimeout(saveTimer);
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); byId('save-indicator').textContent = '● Enregistré'; }
-    catch {byId('save-indicator').textContent = '● Stockage indisponible'; toast('Stockage du navigateur saturé ou interdit : exporte le projet.',true);}
+    try {
+      const current=localStorage.getItem(STORAGE_KEY);
+      if(current){
+        try{
+          const old=JSON.parse(current);
+          if(validProjectFiles(old.files)&&JSON.stringify({name:old.projectName,files:old.files})!==
+              JSON.stringify({name:state.projectName,files:state.files})){
+            savePrevious({projectName:old.projectName,files:old.files});
+          }
+        }catch(_){/* Corrupted primary is never treated as a valid previous version. */}
+      }
+      localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
+      byId('save-indicator').textContent='● Enregistré';
+      return true;
+    } catch {
+      byId('save-indicator').textContent='● Stockage indisponible';
+      toast('Sauvegarde locale impossible : exporte ton projet JSON.',true);
+      return false;
+    }
   }
-  function scheduleSave() {byId('save-indicator').textContent='◌ Enregistrement…';clearTimeout(saveTimer);saveTimer=setTimeout(persist,350);}
+  function scheduleSave() {
+    byId('save-indicator').textContent='◌ Enregistrement…';
+    clearTimeout(saveTimer);saveTimer=setTimeout(persist,350);
+  }
   function toast(message,isError=false){
     const el=byId('toast');el.textContent=message;el.style.borderColor=isError?'#bb6676':'#6582ab';el.classList.remove('hidden');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.add('hidden'),3500);
   }
@@ -136,7 +209,10 @@
   }
   function changeFile(content){
     if(!state.activeFile)return;
-    if(content.length>MAX_FILE_SIZE){toast('Limite : 120 000 caractères par fichier.',true);return;}
+    if(content.length>MAX_FILE_SIZE){
+      byId('code-editor').value=state.files[state.activeFile];
+      toast('Limite : 120 000 caractères par fichier. Le contenu précédent est conservé.',true);return;
+    }
     state.files[state.activeFile]=content;updateLineNumbers();updateCursor();scheduleSave();
   }
   function newFile(){
@@ -150,14 +226,62 @@
   function deleteFile(name){
     if(Object.keys(state.files).length<=1){toast('Conserve au moins un fichier.',true);return;}
     if(!window.confirm(`Supprimer définitivement « ${name} » du projet local ?`))return;
+    if(!preserveCurrent())toast('Copie de secours indisponible : exporte le projet JSON.',true);
     delete state.files[name];state.opened=state.opened.filter(n=>n!==name);
     if(state.activeFile===name){const next=Object.keys(state.files)[0];openFile(next);}
     else{renderFiles();renderTabs();scheduleSave();}
     log('Fichier supprimé : '+name,'warning');
   }
   function download(filename,content,mime){
-    const blob=new Blob([content],{type:mime});const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');a.href=url;a.download=filename;a.hidden=true;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
+    const blob=new Blob([content],{type:mime});
+    if(!blob.size)throw Error('Téléchargement vide.');
+    if(lastDownloadUrl)URL.revokeObjectURL(lastDownloadUrl);
+    if(lastDownloadTimeout)clearTimeout(lastDownloadTimeout);
+    const url=URL.createObjectURL(blob);
+    lastDownloadUrl=url;
+    const fallback=byId('download-fallback');
+    if(fallback){
+      fallback.href=url;fallback.download=filename;
+      fallback.textContent='Télécharger manuellement '+filename;
+      fallback.hidden=false;
+    }
+    const a=document.createElement('a');a.href=url;a.download=filename;a.hidden=true;
+    document.body.append(a);a.click();a.remove();
+    lastDownloadTimeout=setTimeout(()=>{
+      if(lastDownloadUrl!==url)return;
+      URL.revokeObjectURL(url);lastDownloadUrl=null;
+      if(fallback){
+        fallback.removeAttribute('href');
+        fallback.textContent='Lien expiré : renouvelle l’export.';
+      }
+    },300000);
+  }
+  function exportRecovery(){
+    const snapshot=recoverySnapshot();
+    if(!snapshot){toast('Aucune copie précédente disponible.',true);return;}
+    download((snapshot.projectName.replace(/[^a-z0-9_-]/gi,'-')||'autocoder')+
+      '-secours.json',JSON.stringify({
+        format:'autocoder-studio-niko-v2',exportedAt:new Date().toISOString(),
+        projectName:snapshot.projectName,files:snapshot.files
+      },null,2),'application/json');
+    toast('Copie précédente préparée. Vérifie le téléchargement.');
+  }
+  function restoreRecovery(){
+    const backup=recoverySnapshot();
+    if(!backup){toast('Aucune copie précédente valide.',true);return;}
+    if(!window.confirm('Restaurer la version précédente ('+
+      Object.keys(backup.files).length+
+      ' fichiers) ? Elle remplacera le projet actuel. Exporte ton projet avant si nécessaire.'))return;
+    if(!preserveCurrent()){
+      toast('Impossible de préserver le projet courant : exporte-le avant de restaurer.',true);return;
+    }
+    state.files=clone(backup.files);
+    state.projectName=backup.projectName;
+    state.opened=Object.keys(backup.files).slice(0,8);
+    openFile(state.opened[0]);resetAgents();persist();
+    showRecoveryStatus();
+    toast('Copie précédente chargée. Vérifie les fichiers et exporte un JSON.');
+    log('Version précédente du code restaurée volontairement.','success','SAUVEGARDE');
   }
   function exportProject(){
     persist();const payload={format:'autocoder-studio-niko-v2',exportedAt:new Date().toISOString(),projectName:state.projectName,files:state.files};
@@ -174,6 +298,7 @@
       const files={};
       for(const [name,content] of entries){if(!ACCEPTED.test(name)||typeof content!=='string'||content.length>MAX_FILE_SIZE)throw Error('Fichier invalide : '+name);files[name]=content;}
       if(!window.confirm('Importer ce projet et remplacer les fichiers présents ? Exporte d’abord les fichiers actuels si nécessaire.'))return;
+      if(!preserveCurrent())toast('Copie de secours impossible : exporte une sauvegarde du projet actuel.',true);
       state.files=files;state.projectName=String(payload.projectName||'projet-importe').slice(0,50);
       state.opened=Object.keys(files).slice(0,8);openFile(state.opened[0]);resetAgents();
       log('Projet importé : '+entries.length+' fichier(s).','success');toast('Projet importé.');
@@ -263,6 +388,7 @@
     if(prompt.length>4000){toast('Demande limitée à 4 000 caractères.',true);return;}
     if(busy){toast('Termine ou arrête l’exécution en cours.',true);return;}
     if(!window.confirm('Générer un nouveau projet ? Les fichiers existants seront remplacés. Exporte-les si nécessaire.'))return;
+    if(!preserveCurrent())toast('Copie de secours indisponible : exporte le projet JSON si nécessaire.',true);
     byId('btn-generate').disabled=true;resetAgents();
     agentStatus('architect','running','Analyse de la demande');log('Demande : '+prompt,'agent','ARCHITECTE');
     try{
@@ -443,6 +569,8 @@
     byId('btn-stop').addEventListener('click',()=>stopRun());
     byId('btn-new').addEventListener('click',newFile);
     byId('btn-export').addEventListener('click',exportProject);
+    byId('btn-restore-previous').addEventListener('click',restoreRecovery);
+    byId('btn-export-previous').addEventListener('click',exportRecovery);
     byId('btn-import').addEventListener('click',()=>byId('file-import').click());
     byId('file-import').addEventListener('change',async ev=>{await importProject(ev.target.files?.[0]);ev.target.value='';});
     byId('btn-clear-logs').addEventListener('click',()=>{state.logs=[];renderLogs();persist();});
@@ -468,10 +596,16 @@
       state.timeout=Number(byId('settings-timeout').value);authToken=byId('settings-token').value.trim().slice(0,256);
       updateMode();persist();dialog.close();log('Réglages enregistrés : '+(state.mode==='local'?'moteur local.':'IA serveur configurée (connexion non vérifiée).'),'info');
     });
-    window.addEventListener('beforeunload',()=>{clearTimeout(saveTimer);try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state));}catch{}});
+    const flushPending=()=>{if(saveTimer!==null){clearTimeout(saveTimer);saveTimer=null;persist();}};
+    document.addEventListener('visibilitychange',()=>{
+      if(document.visibilityState==='hidden')flushPending();
+    });
+    window.addEventListener('pagehide',flushPending);
+    window.addEventListener('beforeunload',flushPending);
   }
   function boot(){
     bindUI();updateMode();renderLogs();openFile(state.activeFile);
+    showRecoveryStatus();
     log('AutoCoder 2.0 prêt. Mode '+(state.mode==='local'?'local — modèles prédéfinis.':'serveur — configuration requise.'),'success');
     if('serviceWorker' in navigator && location.protocol==='https:'){
       navigator.serviceWorker.register('./sw.js').catch(()=>{});
