@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync,existsSync} from 'node:fs';
+import {runInNewContext} from 'node:vm';
 import {fileURLToPath} from 'node:url';
 import {dirname,resolve} from 'node:path';
 import handler from '../api/generate.mjs';
@@ -17,6 +18,45 @@ test('la coque contient tous les fichiers de la PWA',()=>{
     assert.equal(existsSync(resolve(base,name)),true,name);
   }
 });
+test('offline non-navigation resources never receive HTML fallback',async()=>{
+  const handlers={};
+  const origin='https://autocoder.example';
+  const pages=new Map([
+    ['./index.html',new Response('<html>AutoCoder offline</html>',{headers:{'Content-Type':'text/html'}})],
+    [origin+'/styles.css',new Response('body{color:black}',{headers:{'Content-Type':'text/css'}})]
+  ]);
+  const caches={
+    match:async request=>pages.get(typeof request==='string'?request:request.url)?.clone(),
+    open:async()=>({put:async()=>{}})
+  };
+  const self={
+    location:{origin},
+    addEventListener:(type,listener)=>{handlers[type]=listener;}
+  };
+  runInNewContext(text('sw.js'),{self,caches,Response,URL,fetch:async()=>{throw Error('offline');}});
+  const request=async(uri,mode)=>{
+    let promised;
+    handlers.fetch({
+      request:{method:'GET',url:origin+uri,mode},
+      respondWith(value){promised=value;},
+      waitUntil(){}
+    });
+    assert.ok(promised,'Expected service worker to handle '+uri);
+    return await promised;
+  };
+  const missingJS=await request('/missing.js','no-cors');
+  assert.equal(missingJS.type,'error','Offline script must fail rather than receive HTML');
+  const css=await request('/styles.css','no-cors');
+  assert.equal(css.status,200);
+  assert.equal(await css.text(),'body{color:black}');
+  const navigation=await request('/unavailable-page','navigate');
+  assert.equal(navigation.status,200);
+  assert.equal(await navigation.text(),'<html>AutoCoder offline</html>');
+  let intercepted=false;
+  handlers.fetch({request:{method:'GET',url:origin+'/api/status',mode:'cors'},respondWith(){intercepted=true;}});
+  assert.equal(intercepted,false,'APIs must bypass the offline cache');
+});
+
 test('les contrôles principaux sont présents',()=>{
   const html=text('index.html');
   for(const id of ['btn-generate','code-editor','btn-run','btn-stop','btn-tests','btn-preview','btn-export','btn-import','log-list','diagnostic-list'])assert.match(html,new RegExp(`id="${id}"`));
