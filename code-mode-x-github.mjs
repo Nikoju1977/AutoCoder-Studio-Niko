@@ -52,7 +52,7 @@ export async function loadPublicSelection(snapshot,paths,options={}){
   files.push({name,content});mapping.push({name,path:f.path,sha:f.sha});
  }
  validateFiles(files);
- return {name:snapshot.repo,files,github:{repo:snapshot.repo,commit:snapshot.commit,mapping}};
+ return {name:snapshot.repo,files,github:{repo:snapshot.repo,branch:snapshot.branch,commit:snapshot.commit,mapping}};
 }
 export function githubProposal(project,result){
  if(result?.status!=='review_required'||!project.github)throw Error('Aucune proposition GitHub');
@@ -60,7 +60,7 @@ export function githubProposal(project,result){
  if(files.length!==map.size||files.some(f=>!map.has(f.name)))throw Error('Nouveau fichier ou suppression non autorisé dans cette sélection');
  if(!audit(files).passed)throw Error('Audit statique refusé');
  const changes=files.filter(f=>project.files.find(o=>o.name===f.name)?.content!==f.content).map(f=>({path:map.get(f.name).path,expectedBlob:map.get(f.name).sha,content:f.content}));
- return {format:'code-mode-x-github-proposal-v1',repo:project.github.repo,commit:project.github.commit,testsExecuted:false,status:'review_required',changes};
+ return {format:'code-mode-x-github-proposal-v1',repo:project.github.repo,branch:project.github.branch,commit:project.github.commit,testsExecuted:false,status:'review_required',changes};
 }
 
 export async function listOwnerPage(owner,page=1,options={}){
