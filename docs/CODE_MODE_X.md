@@ -75,3 +75,6 @@ Le routeur déterministe sélectionne quatre routes à partir du type de mission
 
 ## V19 — Universal Developer SDK
 Protocole studio-niko-tools/1, SDK Node et Python, passerelle stdin/stdout locale et transport in-process. Voir docs/NATIVE_PROTOCOL.md. Permissions choisies par l’opérateur au lancement; l’identité app est déclarative, non authentifiée. Trois outils projet, simulation facultative, aucun accès réseau, QPU physique, publication ou shell distant. Les SDK ne sont pas encore publiés sur npm/PyPI. Tests de processus réels ajoutés. CLI Modern Web Guidance non exécutée dans cette session GitHub.
+
+## V20 — Universal Infrastructure
+Passerelle HTTP loopback avec jetons indépendants par application, droits locaux et limites de ressources. SDK HTTP Node, adaptateur MCP stdio legacy 2025-06-18 facultatif. Documentation NATIVE_PROTOCOL.md. Pas de serveur public, distribution de tâches distante, extensions arbitraires ni compatibilité MCP complète. Tests HTTP réels locaux et adaptateur sur doubles/registre local ajoutés. CLI Modern Web Guidance non exécutée dans cette session GitHub.

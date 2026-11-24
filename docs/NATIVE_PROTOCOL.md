@@ -26,3 +26,11 @@ print(c.call("project.audit"))
 ```
 
 Both require Node 20+; Python client uses standard library only. The project file is chosen by the local operator; the gateway does not open paths supplied by JSON requests. Do not treat local subprocess isolation as a security sandbox. Tool extensions require reviewed changes to the native registry; third-party arbitrary plugins and remote application authentication are not implemented.
+
+## V20 — Local HTTP infrastructure and optional MCP adapter
+The native gateway can run over loopback HTTP, bound exclusively to 127.0.0.1. No CORS, browser origins rejected, no remote exposure. Each application has its own high-entropy bearer token and operator-chosen project and permissions. Example local config (keep outside repository):
+```json
+{"apps":[{"id":"audio","tokenEnv":"CMX_APP_AUDIO","project":"project.json","permissions":["project.read"]}]}
+```
+Generate a distinct token per app with node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))". Set the corresponding environment variable locally; never commit tokens. Start node scripts/local-server.mjs config.json 8765. Node client: import {httpClient} from './sdk/http-client.mjs'; const c=httpClient({app:'audio',token:process.env.CMX_APP_AUDIO}); await c.list(). Limits: 30 requests/minute and 1000 per application per process lifetime, 4 active requests globally; restart resets counters. No persistent task queue, external network, GitHub writes, arbitrary execution or physical QPU. HTTP is plaintext loopback only. The operator and local OS remain the trust boundary.
+Optional legacy MCP adapter: node scripts/mcp-stdio.mjs project.json. Supports the 2025-06-18 initialization lifecycle, ping, tools/list and tools/call for project.read only. No full MCP compliance claim, no latest 2026 protocol support or external client verification. See https://ts.sdk.modelcontextprotocol.io/v2/serving/stdio . Native protocol works independently.
