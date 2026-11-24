@@ -8,11 +8,13 @@ import {normalizeCatalog,filterCatalog,readActivity,recordActivity,latestActivit
 import {makeTask,readQueue,saveQueue,orderedQueue,transitionTask,prepareTask,branchSuggestion} from './code-mode-x-maintenance.mjs';
 import {createNativeBus,listNativeTools} from './code-mode-x-tools.mjs';
 import {selectAndRunTools} from './code-mode-x-routing.mjs';
+import {quantumPresets} from './quantum-core.mjs';
+import {listConnectors} from './code-mode-x-connectors.mjs';
 const $=id=>document.getElementById(id), roles=['architect','developer','critic'];
 let project=null,result=null,controller=null,downloadUrl=null,snapshot=null,evolution=null,catalog=[],catalogPage=0,catalogOwner='',catalogNext=false;
 function fill(select,values){const previous=select.value;select.replaceChildren(...values.map(([value,label])=>new Option(label,value)));if(!select.multiple&&values.length)select.value=values.some(([value])=>value===previous)?previous:values[0][0];}
 for(const role of roles)fill($(role),[['','Automatique (serveur)'],['openai','OpenAI'],['mistral','Mistral'],['agnes','Agnes']]);
-function busy(on){for(const id of ['project-file','current','token','prompt','attempt-budget','consent','gh-repo','gh-branch','gh-list','self-open','catalog-owner','catalog-load','catalog-query','catalog-clear','memory-use','memory-kind','memory-note','memory-evidence','maintenance-title','maintenance-mission','maintenance-priority','maintenance-select','maintenance-state','maintenance-evidence','native-tool','native-auto',...roles])$(id).disabled=on;$('audit').disabled=on||!project;$('run').disabled=on||!project;$('stop').disabled=!on;$('gh-files').disabled=on||!snapshot;$('gh-load').disabled=on||!snapshot;$('memory-save').disabled=on||!project;$('memory-clear').disabled=on||!project;$('evolution-plan').disabled=on||!project;$('evolution-task').disabled=on||!evolution;$('evolution-prepare').disabled=on||!evolution;$('catalog-more').disabled=on||!catalogNext;$('catalog-select').disabled=on||!catalog.length;$('catalog-open').disabled=on||!$('catalog-select').value;$('maintenance-add').disabled=on||!project?.github;$('maintenance-from-roadmap').disabled=on||!project?.github||!evolution;$('maintenance-prepare').disabled=on||!$('maintenance-select').value;$('maintenance-update').disabled=on||!$('maintenance-select').value;$('native-run').disabled=on||!project;}
+function busy(on){for(const id of ['project-file','current','token','prompt','attempt-budget','consent','gh-repo','gh-branch','gh-list','self-open','catalog-owner','catalog-load','catalog-query','catalog-clear','memory-use','memory-kind','memory-note','memory-evidence','maintenance-title','maintenance-mission','maintenance-priority','maintenance-select','maintenance-state','maintenance-evidence','native-tool','native-auto','rest-select','rest-repo','rest-run','quantum-preset','quantum-circuit','quantum-run',...roles])$(id).disabled=on;$('audit').disabled=on||!project;$('run').disabled=on||!project;$('stop').disabled=!on;$('gh-files').disabled=on||!snapshot;$('gh-load').disabled=on||!snapshot;$('memory-save').disabled=on||!project;$('memory-clear').disabled=on||!project;$('evolution-plan').disabled=on||!project;$('evolution-task').disabled=on||!evolution;$('evolution-prepare').disabled=on||!evolution;$('catalog-more').disabled=on||!catalogNext;$('catalog-select').disabled=on||!catalog.length;$('catalog-open').disabled=on||!$('catalog-select').value;$('maintenance-add').disabled=on||!project?.github;$('maintenance-from-roadmap').disabled=on||!project?.github||!evolution;$('maintenance-prepare').disabled=on||!$('maintenance-select').value;$('maintenance-update').disabled=on||!$('maintenance-select').value;$('native-run').disabled=on||!project;}
 function resetResult(){result=null;$('changes').replaceChildren();$('changes').disabled=true;$('export').disabled=true;$('before').value='';$('after').value='';$('review-status').textContent='Aucune proposition.';if(downloadUrl){URL.revokeObjectURL(downloadUrl);downloadUrl=null;}$('download').hidden=true;$('download').removeAttribute('href');}
 function viewSource(){ $('source').value=project?.files.find(f=>f.name===$('file-select').value)?.content??'';}
 function load(raw){loadProject(parseProject(raw));}
@@ -155,9 +157,23 @@ $('maintenance-prepare').addEventListener('click',()=>{if(controller)return;try{
 $('maintenance-update').addEventListener('click',()=>{if(controller)return;try{const t=selectedTask();if(!t)throw Error('Sélection requise');const next=transitionTask(t,$('maintenance-state').value,$('maintenance-evidence').value);saveQueue(localStorage,readQueue(localStorage).map(r=>r.id===t.id?next:r));renderQueue();$('maintenance-status').textContent='État déclaré enregistré, pas une preuve indépendante.';}catch(e){$('maintenance-status').textContent=e.message;}});
 renderQueue();
 
-fill($('native-tool'),listNativeTools().filter(t=>!t.network).map(t=>[t.name,t.name+' — '+t.description]));
+fill($('native-tool'),listNativeTools().filter(t=>t.permission==='project.read').map(t=>[t.name,t.name+' — '+t.description]));
 $('native-run').addEventListener('click',async()=>{
  if(!project||controller)return;
  try{const bus=createNativeBus({project,maxCalls:1});const r=await bus.call($('native-tool').value);$('native-result').textContent=JSON.stringify({result:r.result,journal:bus.journal()},null,2);}
  catch(e){$('native-result').textContent=e.message;}
+});
+
+fill($('rest-select'),listConnectors().map(c=>[c.id,c.description]));
+$('rest-run').addEventListener('click',async()=>{
+ if(controller)return;controller=new AbortController();busy(true);
+ try{const id=$('rest-select').value;const args={id,...(id==='github.repository'?{repo:$('rest-repo').value.trim()}: {})};const b=createNativeBus({permissions:['connector.public.read'],signal:controller.signal,maxCalls:1});const r=await b.call('connector.read',args);$('rest-result').textContent=JSON.stringify(r.result,null,2);}
+ catch(e){$('rest-result').textContent=e.message;}finally{controller=null;busy(false);}
+});
+function preset(){ $('quantum-circuit').value=JSON.stringify(quantumPresets[$('quantum-preset').value],null,2);}
+$('quantum-preset').addEventListener('change',preset);preset();
+$('quantum-run').addEventListener('click',async()=>{
+ if(controller)return;
+ try{const b=createNativeBus({permissions:['quantum.compute'],maxCalls:1});const r=await b.call('quantum.simulate',{circuit:$('quantum-circuit').value});$('quantum-result').textContent=JSON.stringify(r.result,null,2);}
+ catch(e){$('quantum-result').textContent=e.message;}
 });
