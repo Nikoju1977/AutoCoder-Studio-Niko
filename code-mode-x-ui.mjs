@@ -1,14 +1,15 @@
 import {audit,validateFiles} from './code-mode-x.mjs';
 import {runAgentTeam,createHttpAgentTransport} from './code-mode-x-team.mjs';
 import {parseProject,proposalExport} from './code-mode-x-project.mjs';
-import {listPublicRepo,loadPublicSelection,githubProposal} from './code-mode-x-github.mjs';
+import {listPublicRepo,loadPublicSelection,githubProposal,listOwnerPage} from './code-mode-x-github.mjs';
 import {readMemory,writeMemory,forProject,projectKey,makeRecord,selectLessons} from './code-mode-x-memory.mjs';
 import {SELF_REPO,improvementPlan,taskPrompt} from './code-mode-x-evolution.mjs';
+import {normalizeCatalog,filterCatalog,readActivity,recordActivity,latestActivity,clearActivity} from './code-mode-x-catalog.mjs';
 const $=id=>document.getElementById(id), roles=['architect','developer','critic'];
-let project=null,result=null,controller=null,downloadUrl=null,snapshot=null,evolution=null;
+let project=null,result=null,controller=null,downloadUrl=null,snapshot=null,evolution=null,catalog=[],catalogPage=0,catalogOwner='',catalogNext=false;
 function fill(select,values){select.replaceChildren(...values.map(([value,label])=>new Option(label,value)));}
 for(const role of roles)fill($(role),[['','Automatique (serveur)'],['openai','OpenAI'],['mistral','Mistral'],['agnes','Agnes']]);
-function busy(on){for(const id of ['project-file','current','token','prompt','attempt-budget','consent','gh-repo','gh-branch','gh-list','self-open','memory-use','memory-kind','memory-note','memory-evidence',...roles])$(id).disabled=on;$('audit').disabled=on||!project;$('run').disabled=on||!project;$('stop').disabled=!on;$('gh-files').disabled=on||!snapshot;$('gh-load').disabled=on||!snapshot;$('memory-save').disabled=on||!project;$('memory-clear').disabled=on||!project;$('evolution-plan').disabled=on||!project;$('evolution-task').disabled=on||!evolution;$('evolution-prepare').disabled=on||!evolution;}
+function busy(on){for(const id of ['project-file','current','token','prompt','attempt-budget','consent','gh-repo','gh-branch','gh-list','self-open','catalog-owner','catalog-load','catalog-query','catalog-clear','memory-use','memory-kind','memory-note','memory-evidence',...roles])$(id).disabled=on;$('audit').disabled=on||!project;$('run').disabled=on||!project;$('stop').disabled=!on;$('gh-files').disabled=on||!snapshot;$('gh-load').disabled=on||!snapshot;$('memory-save').disabled=on||!project;$('memory-clear').disabled=on||!project;$('evolution-plan').disabled=on||!project;$('evolution-task').disabled=on||!evolution;$('evolution-prepare').disabled=on||!evolution;$('catalog-more').disabled=on||!catalogNext;$('catalog-select').disabled=on||!catalog.length;$('catalog-open').disabled=on||!$('catalog-select').value;}
 function resetResult(){result=null;$('changes').replaceChildren();$('changes').disabled=true;$('export').disabled=true;$('before').value='';$('after').value='';$('review-status').textContent='Aucune proposition.';if(downloadUrl){URL.revokeObjectURL(downloadUrl);downloadUrl=null;}$('download').hidden=true;$('download').removeAttribute('href');}
 function viewSource(){ $('source').value=project?.files.find(f=>f.name===$('file-select').value)?.content??'';}
 function load(raw){loadProject(parseProject(raw));}
@@ -17,7 +18,7 @@ function loadProject(p){project=p;evolution=null;$('evolution-task').replaceChil
 $('file-select').addEventListener('change',viewSource);
 $('project-file').addEventListener('change',async()=>{try{const f=$('project-file').files[0];if(!f||controller)return;controller=new AbortController();busy(true);if(f.size>2000000)throw Error('Fichier trop volumineux');const raw=JSON.parse(await f.text());if(controller.signal.aborted)return;load(raw);}catch(e){$('project-status').textContent='Import refusé : '+e.message;}finally{controller=null;busy(false);$('project-file').value='';}});
 $('current').addEventListener('click',()=>{try{load(JSON.parse(localStorage.getItem('studio-niko-autocoder-v2')));}catch(e){$('project-status').textContent='Aucun projet local valide. Exporte le JSON depuis AutoCoder.';}});
-$('audit').addEventListener('click',()=>{if(!project)return;const r=audit(project.files);$('journal').textContent=JSON.stringify(r,null,2);});
+$('audit').addEventListener('click',()=>{if(!project)return;const r=audit(project.files);$('journal').textContent=JSON.stringify(r,null,2);track('static_audit');});
 async function refresh(){ $('server').textContent='Vérification en cours…';try{const r=await fetch('./api/status',{cache:'no-store',signal:AbortSignal.timeout?AbortSignal.timeout(8000):undefined});if(!r.ok)throw Error();const data=await r.json();$('server').textContent=data.configured?'Serveur configuré : '+(data.providers?.join(', ')||'fournisseurs non précisés')+' (clés non testées)':'Serveur IA non configuré.';}catch{$('server').textContent='API indisponible ou hors ligne. Audit local disponible.';}}
 $('refresh').addEventListener('click',refresh);
 function showChange(){const name=$('changes').value;$('before').value=project?.files.find(f=>f.name.toLowerCase()===name.toLowerCase())?.content??'';$('after').value=result?.proposal?.find(f=>f.name===name)?.content??'';}
@@ -43,6 +44,7 @@ $('run').addEventListener('click',async()=>{
    $('journal').textContent=JSON.stringify({events:result.events,agents:result.agents,providerCalls:result.providerCalls,testsExecuted:false},null,2);
    $('run-status').textContent=result.status==='review_required'?'Proposition à examiner — aucun test exécuté.':result.status==='cancelled'?'Mission annulée.':'Mission bloquée : '+(result.reason||result.status);
    if(result.status==='review_required'&&result.proposal?.length){
+     track('proposal_prepared');
      fill($('changes'),result.changedFiles.map(n=>[n,displayName(n)]));$('changes').disabled=false;$('export').disabled=false;
      $('review-status').textContent=result.changedFiles.length+' fichier(s) proposés. Compare avant export.';showChange();
    }
@@ -58,7 +60,7 @@ $('gh-list').addEventListener('click',async()=>{
 });
 $('gh-load').addEventListener('click',async()=>{
  if(controller||!snapshot)return;const selected=Array.from($('gh-files').selectedOptions,o=>o.value);controller=new AbortController();busy(true);
- try{const p=await loadPublicSelection(snapshot,selected,{signal:controller.signal});loadProject(p);$('gh-status').textContent='Sélection chargée au commit '+p.github.commit.slice(0,12)+' ; aucun fichier distant modifié.';}
+ try{const p=await loadPublicSelection(snapshot,selected,{signal:controller.signal});loadProject(p);track('selection_loaded');$('gh-status').textContent='Sélection chargée au commit '+p.github.commit.slice(0,12)+' ; aucun fichier distant modifié.';}
  catch(e){$('gh-status').textContent=e.message;}finally{controller=null;busy(false);}
 });
 
@@ -92,3 +94,37 @@ $('evolution-prepare').addEventListener('click',()=>{
  try{$('prompt').value=taskPrompt(evolution,$('evolution-task').value);$('consent').checked=false;$('memory-use').checked=false;$('evolution-status').textContent='Mission préparée. Relire, choisir les IA et autoriser explicitement avant de lancer.';$('prompt').focus();}
  catch(e){$('evolution-status').textContent=e.message;}
 });
+
+function track(kind){try{recordActivity(localStorage,project,kind);renderCatalogInfo();}catch{$('catalog-status').textContent='Suivi local indisponible; le projet reste chargé.';}}
+function renderCatalogInfo(){
+ const row=catalog.find(r=>r.repo===$('catalog-select').value);
+ if(!row){$('catalog-info').textContent='Aucun projet sélectionné.';return;}
+ let activity=null;try{activity=latestActivity(readActivity(localStorage),row.repo);}catch{}
+ $('catalog-info').textContent=[row.repo,row.description||'Aucune description', 'Branche : '+(row.branch||'non indiquée'),'Dernier push GitHub : '+(row.updated||'non indiqué'),'Langage : '+(row.language||'non indiqué'),activity?'Dernière intervention locale : '+activity.kind+' · '+activity.at+' · commit '+activity.commit.slice(0,12)+' · '+activity.files+' fichier(s)':'Aucune intervention locale enregistrée.','Tests, stabilité et déploiement : non vérifiés par ce catalogue.'].join('\n');
+}
+function renderCatalog(){
+ const rows=filterCatalog(catalog,$('catalog-query').value);fill($('catalog-select'),rows.map(r=>[r.repo,r.repo]));
+ $('catalog-select').disabled=!!controller||!rows.length;$('catalog-open').disabled=!!controller||!rows.length;renderCatalogInfo();
+}
+async function fetchCatalog(reset){
+ if(controller)return;
+ if(reset){catalog=[];catalogPage=0;catalogNext=false;catalogOwner=$('catalog-owner').value.trim();renderCatalog();}
+ controller=new AbortController();busy(true);$('catalog-status').textContent='Lecture du catalogue…';
+ try{
+  const data=await listOwnerPage(catalogOwner,catalogPage+1,{signal:controller.signal});
+  const map=new Map(catalog.map(r=>[r.repo.toLowerCase(),r]));
+  for(const row of normalizeCatalog(data.rows))map.set(row.repo.toLowerCase(),row);
+  catalog=[...map.values()];catalogPage++;catalogNext=data.hasNext;renderCatalog();
+  $('catalog-status').textContent=catalog.length+' dépôts publics non archivés chargés · page '+catalogPage+(data.hasNext?' · autres pages disponibles':data.capped?' · limite de pagination atteinte':' · dernière page reçue')+'.';
+ }catch(e){$('catalog-status').textContent='Catalogue : '+e.message;}
+ finally{controller=null;busy(false);renderCatalog();}
+}
+$('catalog-load').addEventListener('click',()=>fetchCatalog(true));
+$('catalog-more').addEventListener('click',()=>fetchCatalog(false));
+$('catalog-query').addEventListener('input',renderCatalog);
+$('catalog-select').addEventListener('change',renderCatalogInfo);
+$('catalog-open').addEventListener('click',()=>{
+ if(controller)return;const row=catalog.find(r=>r.repo===$('catalog-select').value);if(!row)return;
+ $('gh-repo').value=row.repo;$('gh-branch').value=row.branch;$('gh-repo').closest('details').open=true;$('gh-list').click();
+});
+$('catalog-clear').addEventListener('click',()=>{if(controller||!confirm('Effacer le suivi local de tous les projets ?'))return;try{clearActivity(localStorage);renderCatalogInfo();$('catalog-status').textContent='Suivi local effacé.';}catch{$('catalog-status').textContent='Effacement impossible.';}});

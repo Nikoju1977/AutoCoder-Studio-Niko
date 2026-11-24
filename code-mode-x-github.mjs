@@ -62,3 +62,10 @@ export function githubProposal(project,result){
  const changes=files.filter(f=>project.files.find(o=>o.name===f.name)?.content!==f.content).map(f=>({path:map.get(f.name).path,expectedBlob:map.get(f.name).sha,content:f.content}));
  return {format:'code-mode-x-github-proposal-v1',repo:project.github.repo,commit:project.github.commit,testsExecuted:false,status:'review_required',changes};
 }
+
+export async function listOwnerPage(owner,page=1,options={}){
+ if(typeof owner!=='string'||!/^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/.test(owner)||!Number.isInteger(page)||page<1||page>20)throw Error('Compte ou page invalide');
+ const rows=await get('/users/'+owner+'/repos?type=owner&sort=pushed&direction=desc&per_page=100&page='+page,options);
+ if(!Array.isArray(rows))throw Error('Réponse GitHub invalide');
+ return {rows,hasNext:rows.length===100&&page<20,capped:rows.length===100&&page===20};
+}

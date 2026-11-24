@@ -43,3 +43,6 @@ Le raccourci ouvre le dépôt public AutoCoder sur la branche feature/code-mode-
 
 ## V9 — Industrialisation
 Le budget de mission propose une ou deux tentatives (3 ou 5 appels maximum). Le plafond serveur AUTOCODER_MAX_OUTPUT_TOKENS est facultatif (256 à 12000, défaut 12000). Ce ne sont pas des quotas globaux ni des plafonds monétaires. Le test navigateur tests/code-mode-x-e2e.mjs couvre l'import, l'audit, la mémoire, la feuille de route, le consentement, le parcours IA simulé et l'export sur viewport mobile. Il ne contacte pas les fournisseurs IA réels. Une prévisualisation Vercel READY ne prouve pas que les fonctionnalités sont testées. Ne promouvoir qu'après vérification des CI et du déploiement.
+
+## V10 — Master Control
+Le catalogue charge les dépôts publics non archivés d'un compte GitHub, par pages de 100 (maximum 20 pages, quota public). Recherche locale et ouverture d'un projet vers l'explorateur V6. Le suivi local conserve au plus 200 événements (sélection, audit statique, proposition) associés au commit; aucune clé ni code source. L'effacement est explicite. Les tests, déploiements et la stabilité ne sont pas déduits de ces événements. Aucun accès privé, push ou scan global automatique.
