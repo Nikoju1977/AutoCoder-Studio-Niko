@@ -81,8 +81,8 @@ function validateResponse(payload) {
   for (const file of payload.files) {
     if (!file || typeof file.name !== 'string' || !FILENAME.test(file.name) ||
         typeof file.content !== 'string' || file.content.length > MAX_GENERATED_FILE_LENGTH ||
-        names.has(file.name)) return null;
-    names.add(file.name);
+        names.has(file.name.toLowerCase())) return null;
+    names.add(file.name.toLowerCase());
     total += file.content.length;
     if (total > MAX_GENERATED_TOTAL) return null;
   }
@@ -90,7 +90,7 @@ function validateResponse(payload) {
   return {
     plan: Array.isArray(payload.plan) ? payload.plan.filter(item => typeof item === 'string').slice(0, 6) : [],
     notes: typeof payload.notes === 'string' ? payload.notes.slice(0, 4_000) : '',
-    files: payload.files,
+    files: payload.files.map(({name,content})=>({name,content})),
   };
 }
 
@@ -142,12 +142,14 @@ export default async function handler(req, res) {
   try {
     const instructions = ['Tu es un assistant de développement logiciel exigeant et francophone. Génère des fichiers exécutables et cohérents, sans prétendre avoir exécuté les tests. Retourne un plan concis, des notes utiles et le contenu complet de chaque fichier demandé. N’inclus aucun secret.', webStandardsForPrompt(parsedBody.prompt, validation.context)].filter(Boolean).join('\n\n');
     const input = JSON.stringify({ demande: parsedBody.prompt, projetExistant: validation.context });
+    const outputBudget=Number(process.env.AUTOCODER_MAX_OUTPUT_TOKENS||12000);
+    if(!Number.isInteger(outputBudget)||outputBudget<256||outputBudget>12000)return asJson(res,503,{error:'Budget serveur invalide.'});
     const upstream = await fetch(config.url, {
       method: 'POST',
       headers: { Authorization: `Bearer ${config.key}`, 'Content-Type': 'application/json' },
       signal: controller.signal,
       redirect: 'error',
-      body: JSON.stringify(providerBody(config,instructions,input,schema)),
+      body: JSON.stringify(providerBody(config,instructions,input,schema,outputBudget)),
     });
 
     if (!upstream.ok) {

@@ -24,7 +24,7 @@ export async function runAgentTeam({prompt,files=[],request,signal,maxAttempts=2
   const agents=[];
   async function invoke(role,instructions,context) {
     if(signal?.aborted)throw Error('Cancelled');
-    if(calls>=7)throw Error('Call budget exhausted');
+    if(calls>=1+2*maxAttempts)throw Error('Call budget exhausted');
     const fullPrompt=instructions+'\nDemande utilisateur :\n'+prompt;
     ensureSafe(fullPrompt);
     const safe=validateFiles(context);

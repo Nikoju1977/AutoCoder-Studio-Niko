@@ -26,3 +26,4 @@ jobs:
           sleep 2
           node tests/recovery-e2e.mjs
           npm run test:e2e
+          node tests/code-mode-x-e2e.mjs

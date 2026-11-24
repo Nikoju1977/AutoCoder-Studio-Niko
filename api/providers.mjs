@@ -17,9 +17,9 @@ export function selectProvider({provider,role}={},env=process.env){
   const d=definitions[name];
   return {name,url:d.url,key:env[d.key].trim(),model:env[d.model]?.trim()||d.defaultModel};
 }
-export function providerBody(config,instructions,input,schema){
-  if(config.name==='openai')return {model:config.model,store:false,max_output_tokens:12000,instructions,input,text:{format:{type:'json_schema',name:'autocoder_project',strict:true,schema}}};
-  const body={model:config.model,max_tokens:12000,messages:[{role:'system',content:instructions+'\nRetourne exclusivement un objet JSON valide, sans balises Markdown, au format {"plan":["étape"],"notes":"texte","files":[{"name":"main.py","content":"code complet"}]}.'},{role:'user',content:input}]};
+export function providerBody(config,instructions,input,schema,maxTokens=12000){
+  if(config.name==='openai')return {model:config.model,store:false,max_output_tokens:maxTokens,instructions,input,text:{format:{type:'json_schema',name:'autocoder_project',strict:true,schema}}};
+  const body={model:config.model,max_tokens:maxTokens,messages:[{role:'system',content:instructions+'\nRetourne exclusivement un objet JSON valide, sans balises Markdown, au format {"plan":["étape"],"notes":"texte","files":[{"name":"main.py","content":"code complet"}]}.'},{role:'user',content:input}]};
   if(config.name==='mistral')body.response_format={type:'json_object'};
   // Agnes chat is OpenAI-compatible; JSON mode is not assumed.
   return body;

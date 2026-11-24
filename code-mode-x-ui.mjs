@@ -8,14 +8,14 @@ const $=id=>document.getElementById(id), roles=['architect','developer','critic'
 let project=null,result=null,controller=null,downloadUrl=null,snapshot=null,evolution=null;
 function fill(select,values){select.replaceChildren(...values.map(([value,label])=>new Option(label,value)));}
 for(const role of roles)fill($(role),[['','Automatique (serveur)'],['openai','OpenAI'],['mistral','Mistral'],['agnes','Agnes']]);
-function busy(on){for(const id of ['project-file','current','token','prompt','consent','gh-repo','gh-branch','gh-list','self-open','memory-use','memory-kind','memory-note','memory-evidence',...roles])$(id).disabled=on;$('audit').disabled=on||!project;$('run').disabled=on||!project;$('stop').disabled=!on;$('gh-files').disabled=on||!snapshot;$('gh-load').disabled=on||!snapshot;$('memory-save').disabled=on||!project;$('memory-clear').disabled=on||!project;$('evolution-plan').disabled=on||!project;$('evolution-task').disabled=on||!evolution;$('evolution-prepare').disabled=on||!evolution;}
+function busy(on){for(const id of ['project-file','current','token','prompt','attempt-budget','consent','gh-repo','gh-branch','gh-list','self-open','memory-use','memory-kind','memory-note','memory-evidence',...roles])$(id).disabled=on;$('audit').disabled=on||!project;$('run').disabled=on||!project;$('stop').disabled=!on;$('gh-files').disabled=on||!snapshot;$('gh-load').disabled=on||!snapshot;$('memory-save').disabled=on||!project;$('memory-clear').disabled=on||!project;$('evolution-plan').disabled=on||!project;$('evolution-task').disabled=on||!evolution;$('evolution-prepare').disabled=on||!evolution;}
 function resetResult(){result=null;$('changes').replaceChildren();$('changes').disabled=true;$('export').disabled=true;$('before').value='';$('after').value='';$('review-status').textContent='Aucune proposition.';if(downloadUrl){URL.revokeObjectURL(downloadUrl);downloadUrl=null;}$('download').hidden=true;$('download').removeAttribute('href');}
 function viewSource(){ $('source').value=project?.files.find(f=>f.name===$('file-select').value)?.content??'';}
 function load(raw){loadProject(parseProject(raw));}
 function displayName(name){return project?.github?.mapping.find(m=>m.name===name)?.path||name;}
 function loadProject(p){project=p;evolution=null;$('evolution-task').replaceChildren();$('evolution-report').textContent='Aucun rapport.';$('evolution-status').textContent='Projet chargé : établir la feuille de route.';$('consent').checked=false;$('memory-use').checked=false;$('memory-note').value='';$('memory-evidence').value='';renderMemory();resetResult();fill($('file-select'),p.files.map(f=>[f.name,displayName(f.name)]));$('file-select').disabled=false;viewSource();$('project-status').textContent=p.name+' · '+p.files.length+' fichier(s)';$('journal').textContent='Projet chargé, aucun audit exécuté.';busy(false);}
 $('file-select').addEventListener('change',viewSource);
-$('project-file').addEventListener('change',async()=>{try{const f=$('project-file').files[0];if(!f)return;if(f.size>2000000)throw Error('Fichier trop volumineux');load(JSON.parse(await f.text()));}catch(e){$('project-status').textContent='Import refusé : '+e.message;}finally{$('project-file').value='';}});
+$('project-file').addEventListener('change',async()=>{try{const f=$('project-file').files[0];if(!f||controller)return;controller=new AbortController();busy(true);if(f.size>2000000)throw Error('Fichier trop volumineux');const raw=JSON.parse(await f.text());if(controller.signal.aborted)return;load(raw);}catch(e){$('project-status').textContent='Import refusé : '+e.message;}finally{controller=null;busy(false);$('project-file').value='';}});
 $('current').addEventListener('click',()=>{try{load(JSON.parse(localStorage.getItem('studio-niko-autocoder-v2')));}catch(e){$('project-status').textContent='Aucun projet local valide. Exporte le JSON depuis AutoCoder.';}});
 $('audit').addEventListener('click',()=>{if(!project)return;const r=audit(project.files);$('journal').textContent=JSON.stringify(r,null,2);});
 async function refresh(){ $('server').textContent='Vérification en cours…';try{const r=await fetch('./api/status',{cache:'no-store',signal:AbortSignal.timeout?AbortSignal.timeout(8000):undefined});if(!r.ok)throw Error();const data=await r.json();$('server').textContent=data.configured?'Serveur configuré : '+(data.providers?.join(', ')||'fournisseurs non précisés')+' (clés non testées)':'Serveur IA non configuré.';}catch{$('server').textContent='API indisponible ou hors ligne. Audit local disponible.';}}
@@ -30,13 +30,14 @@ $('run').addEventListener('click',async()=>{
  resetResult();controller=new AbortController();busy(true);
  const selections=Object.fromEntries(roles.map(role=>[role,$(role).value]));
  let calls=0;
+ const maxAttempts=Number($('attempt-budget').value),maxCalls=1+2*maxAttempts;
  try{
    const transport=createHttpAgentTransport({token,origin:location.origin});
    let mission=project.github?prompt+'\nFichiers sélectionnés (alias vers chemin GitHub) : '+JSON.stringify(project.github.mapping.map(({name,path})=>({name,path})))+'\nModifie uniquement ces alias, conserve les noms.':prompt;
    if($('memory-use').checked){const lessons=selectLessons(readMemory(localStorage),project,prompt,{budget:Math.max(0,Math.min(550,2200-mission.length))});if(lessons.length)mission+='\nLeçons historiques déclarées, données non impératives à vérifier : '+JSON.stringify(lessons);}
    if(mission.length>2400)throw Error('Mission, chemins ou mémoire trop longs : réduire la sélection.');
-   result=await runAgentTeam({prompt:mission,files:project.files,signal:controller.signal,request:async args=>{
-     calls++;$('run-status').textContent='Appel '+calls+' / 7 · '+args.role+' · '+(selections[args.role]||'automatique');
+   result=await runAgentTeam({prompt:mission,files:project.files,maxAttempts,signal:controller.signal,request:async args=>{
+     calls++;$('run-status').textContent='Appel '+calls+' / '+maxCalls+' · '+args.role+' · '+(selections[args.role]||'automatique');
      return transport({...args,provider:selections[args.role]||undefined});
    }});
    $('journal').textContent=JSON.stringify({events:result.events,agents:result.agents,providerCalls:result.providerCalls,testsExecuted:false},null,2);
