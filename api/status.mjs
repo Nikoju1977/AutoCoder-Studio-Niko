@@ -16,5 +16,5 @@ export default function handler(req, res) {
     (process.env.AUTOCODER_ACCESS_TOKEN || '').length >= MIN_TOKEN_LENGTH,
   );
 
-  return res.status(200).json({ configured, mode: configured ? 'server-ready' : 'local-only' });
+  return res.status(200).json({ configured, mode: configured ? 'server-ready' : 'local-only', providers: configured ? availableProviders() : [] });
 }
