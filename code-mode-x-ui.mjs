@@ -3,16 +3,17 @@ import {runAgentTeam,createHttpAgentTransport} from './code-mode-x-team.mjs';
 import {parseProject,proposalExport} from './code-mode-x-project.mjs';
 import {listPublicRepo,loadPublicSelection,githubProposal} from './code-mode-x-github.mjs';
 import {readMemory,writeMemory,forProject,projectKey,makeRecord,selectLessons} from './code-mode-x-memory.mjs';
+import {SELF_REPO,improvementPlan,taskPrompt} from './code-mode-x-evolution.mjs';
 const $=id=>document.getElementById(id), roles=['architect','developer','critic'];
-let project=null,result=null,controller=null,downloadUrl=null,snapshot=null;
+let project=null,result=null,controller=null,downloadUrl=null,snapshot=null,evolution=null;
 function fill(select,values){select.replaceChildren(...values.map(([value,label])=>new Option(label,value)));}
 for(const role of roles)fill($(role),[['','Automatique (serveur)'],['openai','OpenAI'],['mistral','Mistral'],['agnes','Agnes']]);
-function busy(on){for(const id of ['project-file','current','token','prompt','consent','gh-repo','gh-list','memory-use','memory-kind','memory-note','memory-evidence',...roles])$(id).disabled=on;$('audit').disabled=on||!project;$('run').disabled=on||!project;$('stop').disabled=!on;$('gh-files').disabled=on||!snapshot;$('gh-load').disabled=on||!snapshot;$('memory-save').disabled=on||!project;$('memory-clear').disabled=on||!project;}
+function busy(on){for(const id of ['project-file','current','token','prompt','consent','gh-repo','gh-branch','gh-list','self-open','memory-use','memory-kind','memory-note','memory-evidence',...roles])$(id).disabled=on;$('audit').disabled=on||!project;$('run').disabled=on||!project;$('stop').disabled=!on;$('gh-files').disabled=on||!snapshot;$('gh-load').disabled=on||!snapshot;$('memory-save').disabled=on||!project;$('memory-clear').disabled=on||!project;$('evolution-plan').disabled=on||!project;$('evolution-task').disabled=on||!evolution;$('evolution-prepare').disabled=on||!evolution;}
 function resetResult(){result=null;$('changes').replaceChildren();$('changes').disabled=true;$('export').disabled=true;$('before').value='';$('after').value='';$('review-status').textContent='Aucune proposition.';if(downloadUrl){URL.revokeObjectURL(downloadUrl);downloadUrl=null;}$('download').hidden=true;$('download').removeAttribute('href');}
 function viewSource(){ $('source').value=project?.files.find(f=>f.name===$('file-select').value)?.content??'';}
 function load(raw){loadProject(parseProject(raw));}
 function displayName(name){return project?.github?.mapping.find(m=>m.name===name)?.path||name;}
-function loadProject(p){project=p;$('consent').checked=false;$('memory-use').checked=false;$('memory-note').value='';$('memory-evidence').value='';renderMemory();resetResult();fill($('file-select'),p.files.map(f=>[f.name,displayName(f.name)]));$('file-select').disabled=false;viewSource();$('project-status').textContent=p.name+' · '+p.files.length+' fichier(s)';$('journal').textContent='Projet chargé, aucun audit exécuté.';busy(false);}
+function loadProject(p){project=p;evolution=null;$('evolution-task').replaceChildren();$('evolution-report').textContent='Aucun rapport.';$('evolution-status').textContent='Projet chargé : établir la feuille de route.';$('consent').checked=false;$('memory-use').checked=false;$('memory-note').value='';$('memory-evidence').value='';renderMemory();resetResult();fill($('file-select'),p.files.map(f=>[f.name,displayName(f.name)]));$('file-select').disabled=false;viewSource();$('project-status').textContent=p.name+' · '+p.files.length+' fichier(s)';$('journal').textContent='Projet chargé, aucun audit exécuté.';busy(false);}
 $('file-select').addEventListener('change',viewSource);
 $('project-file').addEventListener('change',async()=>{try{const f=$('project-file').files[0];if(!f)return;if(f.size>2000000)throw Error('Fichier trop volumineux');load(JSON.parse(await f.text()));}catch(e){$('project-status').textContent='Import refusé : '+e.message;}finally{$('project-file').value='';}});
 $('current').addEventListener('click',()=>{try{load(JSON.parse(localStorage.getItem('studio-niko-autocoder-v2')));}catch(e){$('project-status').textContent='Aucun projet local valide. Exporte le JSON depuis AutoCoder.';}});
@@ -51,7 +52,7 @@ window.addEventListener('pagehide',()=>{controller?.abort();$('token').value='';
 
 $('gh-list').addEventListener('click',async()=>{
  if(controller)return;controller=new AbortController();snapshot=null;$('gh-files').replaceChildren();busy(true);$('gh-status').textContent='Lecture GitHub…';
- try{snapshot=await listPublicRepo($('gh-repo').value,{signal:controller.signal});fill($('gh-files'),snapshot.files.map(f=>[f.path,f.path+' · '+f.size+' o']));$('gh-status').textContent=snapshot.repo+' @ '+snapshot.commit.slice(0,12)+' · '+snapshot.files.length+' fichiers admissibles / '+snapshot.total+' entrées'+(snapshot.partial?' · inventaire partiel':'')+'. Sélection manuelle requise.';}
+ try{snapshot=await listPublicRepo($('gh-repo').value,{signal:controller.signal,branch:$('gh-branch').value.trim()});fill($('gh-files'),snapshot.files.map(f=>[f.path,f.path+' · '+f.size+' o']));$('gh-status').textContent=snapshot.repo+' / '+snapshot.branch+' @ '+snapshot.commit.slice(0,12)+' · '+snapshot.files.length+' fichiers admissibles / '+snapshot.total+' entrées'+(snapshot.partial?' · inventaire partiel':'')+'. Sélection manuelle requise.';}
  catch(e){$('gh-status').textContent=e.message;}finally{controller=null;busy(false);}
 });
 $('gh-load').addEventListener('click',async()=>{
@@ -73,4 +74,20 @@ $('memory-clear').addEventListener('click',()=>{
  if(!project||controller||!confirm('Effacer uniquement les leçons de ce projet sur cet appareil ?'))return;
  try{writeMemory(localStorage,readMemory(localStorage).filter(r=>r.key!==projectKey(project)));renderMemory();}
  catch(e){$('memory-status').textContent='Effacement impossible : '+e.message;}
+});
+
+$('self-open').addEventListener('click',()=>{
+ if(controller)return;
+ $('gh-repo').value=SELF_REPO;$('gh-branch').value='feature/code-mode-x-v1';
+ $('gh-repo').closest('details').open=true;$('gh-list').click();
+});
+$('evolution-plan').addEventListener('click',()=>{
+ if(!project||controller)return;
+ try{evolution=improvementPlan(project);$('evolution-report').textContent=JSON.stringify(evolution,null,2);fill($('evolution-task'),evolution.tasks.map(t=>[t.id,t.title]));$('evolution-status').textContent=evolution.tasks.length+' intervention(s) proposées, aucun test exécuté.';busy(false);}
+ catch(e){$('evolution-status').textContent=e.message;}
+});
+$('evolution-prepare').addEventListener('click',()=>{
+ if(!evolution||controller)return;
+ try{$('prompt').value=taskPrompt(evolution,$('evolution-task').value);$('consent').checked=false;$('memory-use').checked=false;$('evolution-status').textContent='Mission préparée. Relire, choisir les IA et autoriser explicitement avant de lancer.';$('prompt').focus();}
+ catch(e){$('evolution-status').textContent=e.message;}
 });

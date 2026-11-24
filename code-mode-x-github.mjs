@@ -26,12 +26,14 @@ export async function listPublicRepo(value,options={}){
  const repo=parseRepo(value),base='/repos/'+repo;
  const info=await get(base,options);
  if(info.private!==false||typeof info.default_branch!=='string')throw Error('Dépôt public uniquement');
- const commit=await get(base+'/commits/'+encodeURIComponent(info.default_branch),options);
+ const branch=options.branch===undefined||options.branch===''?info.default_branch:options.branch;
+ if(typeof branch!=='string'||branch.length>150||!/^[A-Za-z0-9_.\/-]+$/.test(branch)||branch.includes('..')||branch.startsWith('/')||branch.endsWith('/'))throw Error('Branche invalide');
+ const commit=await get(base+'/commits/'+encodeURIComponent(branch),options);
  if(!SHA.test(commit.sha)||!SHA.test(commit.commit?.tree?.sha))throw Error('Version GitHub invalide');
  const tree=await get(base+'/git/trees/'+commit.commit.tree.sha+'?recursive=1',options);
  if(!Array.isArray(tree.tree))throw Error('Arborescence invalide');
  const eligible=tree.tree.filter(f=>f.type==='blob'&&['100644','100755'].includes(f.mode)&&SHA.test(f.sha)&&Number.isInteger(f.size)&&f.size>=0&&f.size<=12000&&supported(f.path));
- return {repo,commit:commit.sha,branch:info.default_branch,total:tree.tree.length,partial:!!tree.truncated||eligible.length>500,files:eligible.slice(0,500).map(({path,sha,size})=>({path,sha,size}))};
+ return {repo,commit:commit.sha,branch,total:tree.tree.length,partial:!!tree.truncated||eligible.length>500,files:eligible.slice(0,500).map(({path,sha,size})=>({path,sha,size}))};
 }
 export async function loadPublicSelection(snapshot,paths,options={}){
  if(!Array.isArray(paths)||!paths.length||paths.length>12||new Set(paths).size!==paths.length)throw Error('Choisir 1 à 12 fichiers');
