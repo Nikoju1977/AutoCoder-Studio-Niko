@@ -58,6 +58,19 @@ try{
  assert.match(await page.locator('#classical-result').innerText(),/JSON_INVALID/);
  await page.locator('#classical-optimize').click();
  assert.match(await page.locator('#classical-opt-result').innerText(),/"totalValue": 9/);
+ await page.locator('#hybrid-run').click();
+ await page.waitForFunction(()=>document.querySelector('#hybrid-result').textContent.includes('completed_local'));
+ assert.match(await page.locator('#hybrid-result').innerText(),/JSON_INVALID/);
+ await page.locator('#hybrid-kind').selectOption('develop');
+ await page.locator('#hybrid-prompt').fill('Corriger JSON');
+ await page.locator('#hybrid-local').uncheck();
+ const beforeHybridCalls=roles.length;
+ await page.locator('#hybrid-run').click();
+ await page.waitForFunction(()=>!document.querySelector('#hybrid-handoff').disabled);
+ await page.locator('#hybrid-handoff').click();
+ assert.match(await page.locator('#prompt').inputValue(),/Précontrôle local/);
+ assert.equal(await page.locator('#consent').isChecked(),false);
+ assert.equal(roles.length,beforeHybridCalls);
  assert.deepEqual(errors,[]);
  console.log('PASS Code Mode X: local audit, roadmap, memory, consent, mocked agent flow, export, mobile layout');
 }finally{await browser.close();}

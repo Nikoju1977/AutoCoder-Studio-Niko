@@ -11,16 +11,18 @@ import {selectAndRunTools} from './code-mode-x-routing.mjs';
 import {quantumPresets} from './quantum-core.mjs';
 import {listConnectors} from './code-mode-x-connectors.mjs';
 import {planWorkflow,executeWorkflow,optimizeBudget,defaultWorkflow} from './classical-engine.mjs';
+import {prepareHybrid} from './hybrid-engine.mjs';
 const $=id=>document.getElementById(id), roles=['architect','developer','critic'];
+let hybridPrepared=null;
 let project=null,result=null,controller=null,downloadUrl=null,snapshot=null,evolution=null,catalog=[],catalogPage=0,catalogOwner='',catalogNext=false;
 function fill(select,values){const previous=select.value;select.replaceChildren(...values.map(([value,label])=>new Option(label,value)));if(!select.multiple&&values.length)select.value=values.some(([value])=>value===previous)?previous:values[0][0];}
 for(const role of roles)fill($(role),[['','Automatique (serveur)'],['openai','OpenAI'],['mistral','Mistral'],['agnes','Agnes']]);
-function busy(on){for(const id of ['project-file','current','token','prompt','attempt-budget','consent','gh-repo','gh-branch','gh-list','self-open','catalog-owner','catalog-load','catalog-query','catalog-clear','memory-use','memory-kind','memory-note','memory-evidence','maintenance-title','maintenance-mission','maintenance-priority','maintenance-select','maintenance-state','maintenance-evidence','native-tool','native-auto','rest-select','rest-repo','rest-run','quantum-preset','quantum-circuit','quantum-run','qpu-export','classical-workflow','classical-plan','classical-items','classical-budget','classical-optimize',...roles])$(id).disabled=on;$('audit').disabled=on||!project;$('run').disabled=on||!project;$('stop').disabled=!on;$('gh-files').disabled=on||!snapshot;$('gh-load').disabled=on||!snapshot;$('memory-save').disabled=on||!project;$('memory-clear').disabled=on||!project;$('evolution-plan').disabled=on||!project;$('evolution-task').disabled=on||!evolution;$('evolution-prepare').disabled=on||!evolution;$('catalog-more').disabled=on||!catalogNext;$('catalog-select').disabled=on||!catalog.length;$('catalog-open').disabled=on||!$('catalog-select').value;$('maintenance-add').disabled=on||!project?.github;$('maintenance-from-roadmap').disabled=on||!project?.github||!evolution;$('maintenance-prepare').disabled=on||!$('maintenance-select').value;$('maintenance-update').disabled=on||!$('maintenance-select').value;$('native-run').disabled=on||!project;$('classical-run').disabled=on||!project;}
+function busy(on){for(const id of ['project-file','current','token','prompt','attempt-budget','consent','gh-repo','gh-branch','gh-list','self-open','catalog-owner','catalog-load','catalog-query','catalog-clear','memory-use','memory-kind','memory-note','memory-evidence','maintenance-title','maintenance-mission','maintenance-priority','maintenance-select','maintenance-state','maintenance-evidence','native-tool','native-auto','rest-select','rest-repo','rest-run','quantum-preset','quantum-circuit','quantum-run','qpu-export','classical-workflow','classical-plan','classical-items','classical-budget','classical-optimize','hybrid-kind','hybrid-local','hybrid-prompt','hybrid-shots','hybrid-run',...roles])$(id).disabled=on;$('audit').disabled=on||!project;$('run').disabled=on||!project;$('stop').disabled=!on;$('gh-files').disabled=on||!snapshot;$('gh-load').disabled=on||!snapshot;$('memory-save').disabled=on||!project;$('memory-clear').disabled=on||!project;$('evolution-plan').disabled=on||!project;$('evolution-task').disabled=on||!evolution;$('evolution-prepare').disabled=on||!evolution;$('catalog-more').disabled=on||!catalogNext;$('catalog-select').disabled=on||!catalog.length;$('catalog-open').disabled=on||!$('catalog-select').value;$('maintenance-add').disabled=on||!project?.github;$('maintenance-from-roadmap').disabled=on||!project?.github||!evolution;$('maintenance-prepare').disabled=on||!$('maintenance-select').value;$('maintenance-update').disabled=on||!$('maintenance-select').value;$('native-run').disabled=on||!project;$('classical-run').disabled=on||!project;$('hybrid-handoff').disabled=on||!hybridPrepared;}
 function resetResult(){result=null;$('changes').replaceChildren();$('changes').disabled=true;$('export').disabled=true;$('before').value='';$('after').value='';$('review-status').textContent='Aucune proposition.';if(downloadUrl){URL.revokeObjectURL(downloadUrl);downloadUrl=null;}$('download').hidden=true;$('download').removeAttribute('href');}
 function viewSource(){ $('source').value=project?.files.find(f=>f.name===$('file-select').value)?.content??'';}
 function load(raw){loadProject(parseProject(raw));}
 function displayName(name){return project?.github?.mapping.find(m=>m.name===name)?.path||name;}
-function loadProject(p){project=p;$('native-auto').checked=false;evolution=null;$('evolution-task').replaceChildren();$('evolution-report').textContent='Aucun rapport.';$('evolution-status').textContent='Projet chargé : établir la feuille de route.';$('consent').checked=false;$('memory-use').checked=false;$('memory-note').value='';$('memory-evidence').value='';renderMemory();resetResult();fill($('file-select'),p.files.map(f=>[f.name,displayName(f.name)]));$('file-select').disabled=false;viewSource();$('project-status').textContent=p.name+' · '+p.files.length+' fichier(s)';$('journal').textContent='Projet chargé, aucun audit exécuté.';busy(false);}
+function loadProject(p){hybridPrepared=null;$('hybrid-handoff').disabled=true;project=p;$('native-auto').checked=false;evolution=null;$('evolution-task').replaceChildren();$('evolution-report').textContent='Aucun rapport.';$('evolution-status').textContent='Projet chargé : établir la feuille de route.';$('consent').checked=false;$('memory-use').checked=false;$('memory-note').value='';$('memory-evidence').value='';renderMemory();resetResult();fill($('file-select'),p.files.map(f=>[f.name,displayName(f.name)]));$('file-select').disabled=false;viewSource();$('project-status').textContent=p.name+' · '+p.files.length+' fichier(s)';$('journal').textContent='Projet chargé, aucun audit exécuté.';busy(false);}
 $('file-select').addEventListener('change',viewSource);
 $('project-file').addEventListener('change',async()=>{try{const f=$('project-file').files[0];if(!f||controller)return;controller=new AbortController();busy(true);if(f.size>2000000)throw Error('Fichier trop volumineux');const raw=JSON.parse(await f.text());if(controller.signal.aborted)return;load(raw);}catch(e){$('project-status').textContent='Import refusé : '+e.message;}finally{controller=null;busy(false);$('project-file').value='';}});
 $('current').addEventListener('click',()=>{try{load(JSON.parse(localStorage.getItem('studio-niko-autocoder-v2')));}catch(e){$('project-status').textContent='Aucun projet local valide. Exporte le JSON depuis AutoCoder.';}});
@@ -189,4 +191,32 @@ $('classical-run').addEventListener('click',async()=>{
  if(!project||controller)return;controller=new AbortController();busy(true);$('classical-stop').disabled=false;
  try{const raw=JSON.parse($('classical-workflow').value),bus=createNativeBus({project,maxCalls:20,signal:controller.signal});const r=await executeWorkflow(raw,{bus,signal:controller.signal,onEvent:e=>{$('classical-result').textContent=e.id+' : '+e.status;}});$('classical-result').textContent=JSON.stringify(r,null,2);}
  catch(e){$('classical-result').textContent=e.message;}finally{controller=null;$('classical-stop').disabled=true;busy(false);}
+});
+
+function invalidateHybrid(){hybridPrepared=null;$('hybrid-handoff').disabled=true;}
+for(const id of ['hybrid-kind','hybrid-local','hybrid-prompt','hybrid-shots','attempt-budget','native-auto','quantum-circuit','quantum-preset'])$(id).addEventListener('input',invalidateHybrid);
+$('hybrid-stop').addEventListener('click',()=>controller?.abort());
+$('hybrid-run').addEventListener('click',async()=>{
+ if(controller)return;invalidateHybrid();controller=new AbortController();busy(true);$('hybrid-stop').disabled=false;
+ try{
+  const kind=$('hybrid-kind').value;
+  const opts={kind,localOnly:$('hybrid-local').checked,attempts:Number($('attempt-budget').value),automaticTools:$('native-auto').checked,project,prompt:$('hybrid-prompt').value,signal:controller.signal,onEvent:e=>{$('hybrid-result').textContent=e.id+' : '+e.status;}};
+  if(kind==='optimize'){if(!$('classical-budget').value.trim())throw Error('Budget requis');opts.items=JSON.parse($('classical-items').value);opts.budget=Number($('classical-budget').value);}
+  if(kind==='quantum'){opts.circuit=JSON.parse($('quantum-circuit').value);opts.shots=Number($('hybrid-shots').value);}
+  const r=await prepareHybrid(opts);
+  if(r.status==='ai_prepared'||r.status==='hardware_prepared')hybridPrepared=r;
+  $('hybrid-result').textContent=JSON.stringify(r,null,2);
+ }catch(e){$('hybrid-result').textContent=e.message;}finally{controller=null;$('hybrid-stop').disabled=true;busy(false);}
+});
+$('hybrid-handoff').addEventListener('click',()=>{
+ if(controller||!hybridPrepared||$('hybrid-local').checked)return;
+ const r=hybridPrepared;
+ if(r.status==='ai_prepared'){
+  $('prompt').value=r.mission;$('consent').checked=false;$('memory-use').checked=false;$('attempt-budget').value=String(r.plan.attempts);$('native-auto').checked=r.plan.automaticTools;$('prompt').focus();
+  $('hybrid-result').textContent='Mission transmise au formulaire IA. Vérifier le budget, choisir les fournisseurs, autoriser puis lancer manuellement.';
+ }else{
+  const url=URL.createObjectURL(new Blob([JSON.stringify(r.circuit,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='circuit.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  $('hybrid-result').textContent='Circuit exporté, aucun job soumis. Terminal : python quantum_hardware.py prepare circuit.json --shots '+r.shots+' ; puis submit avec le SHA-256 après approbation.';
+ }
+ invalidateHybrid();
 });
