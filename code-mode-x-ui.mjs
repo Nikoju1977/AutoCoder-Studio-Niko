@@ -6,11 +6,12 @@ import {readMemory,writeMemory,forProject,projectKey,makeRecord,selectLessons} f
 import {SELF_REPO,improvementPlan,taskPrompt} from './code-mode-x-evolution.mjs';
 import {normalizeCatalog,filterCatalog,readActivity,recordActivity,latestActivity,clearActivity} from './code-mode-x-catalog.mjs';
 import {makeTask,readQueue,saveQueue,orderedQueue,transitionTask,prepareTask,branchSuggestion} from './code-mode-x-maintenance.mjs';
+import {createNativeBus,listNativeTools} from './code-mode-x-tools.mjs';
 const $=id=>document.getElementById(id), roles=['architect','developer','critic'];
 let project=null,result=null,controller=null,downloadUrl=null,snapshot=null,evolution=null,catalog=[],catalogPage=0,catalogOwner='',catalogNext=false;
 function fill(select,values){const previous=select.value;select.replaceChildren(...values.map(([value,label])=>new Option(label,value)));if(!select.multiple&&values.length)select.value=values.some(([value])=>value===previous)?previous:values[0][0];}
 for(const role of roles)fill($(role),[['','Automatique (serveur)'],['openai','OpenAI'],['mistral','Mistral'],['agnes','Agnes']]);
-function busy(on){for(const id of ['project-file','current','token','prompt','attempt-budget','consent','gh-repo','gh-branch','gh-list','self-open','catalog-owner','catalog-load','catalog-query','catalog-clear','memory-use','memory-kind','memory-note','memory-evidence','maintenance-title','maintenance-mission','maintenance-priority','maintenance-select','maintenance-state','maintenance-evidence',...roles])$(id).disabled=on;$('audit').disabled=on||!project;$('run').disabled=on||!project;$('stop').disabled=!on;$('gh-files').disabled=on||!snapshot;$('gh-load').disabled=on||!snapshot;$('memory-save').disabled=on||!project;$('memory-clear').disabled=on||!project;$('evolution-plan').disabled=on||!project;$('evolution-task').disabled=on||!evolution;$('evolution-prepare').disabled=on||!evolution;$('catalog-more').disabled=on||!catalogNext;$('catalog-select').disabled=on||!catalog.length;$('catalog-open').disabled=on||!$('catalog-select').value;$('maintenance-add').disabled=on||!project?.github;$('maintenance-from-roadmap').disabled=on||!project?.github||!evolution;$('maintenance-prepare').disabled=on||!$('maintenance-select').value;$('maintenance-update').disabled=on||!$('maintenance-select').value;}
+function busy(on){for(const id of ['project-file','current','token','prompt','attempt-budget','consent','gh-repo','gh-branch','gh-list','self-open','catalog-owner','catalog-load','catalog-query','catalog-clear','memory-use','memory-kind','memory-note','memory-evidence','maintenance-title','maintenance-mission','maintenance-priority','maintenance-select','maintenance-state','maintenance-evidence','native-tool',...roles])$(id).disabled=on;$('audit').disabled=on||!project;$('run').disabled=on||!project;$('stop').disabled=!on;$('gh-files').disabled=on||!snapshot;$('gh-load').disabled=on||!snapshot;$('memory-save').disabled=on||!project;$('memory-clear').disabled=on||!project;$('evolution-plan').disabled=on||!project;$('evolution-task').disabled=on||!evolution;$('evolution-prepare').disabled=on||!evolution;$('catalog-more').disabled=on||!catalogNext;$('catalog-select').disabled=on||!catalog.length;$('catalog-open').disabled=on||!$('catalog-select').value;$('maintenance-add').disabled=on||!project?.github;$('maintenance-from-roadmap').disabled=on||!project?.github||!evolution;$('maintenance-prepare').disabled=on||!$('maintenance-select').value;$('maintenance-update').disabled=on||!$('maintenance-select').value;$('native-run').disabled=on||!project;}
 function resetResult(){result=null;$('changes').replaceChildren();$('changes').disabled=true;$('export').disabled=true;$('before').value='';$('after').value='';$('review-status').textContent='Aucune proposition.';if(downloadUrl){URL.revokeObjectURL(downloadUrl);downloadUrl=null;}$('download').hidden=true;$('download').removeAttribute('href');}
 function viewSource(){ $('source').value=project?.files.find(f=>f.name===$('file-select').value)?.content??'';}
 function load(raw){loadProject(parseProject(raw));}
@@ -19,7 +20,7 @@ function loadProject(p){project=p;evolution=null;$('evolution-task').replaceChil
 $('file-select').addEventListener('change',viewSource);
 $('project-file').addEventListener('change',async()=>{try{const f=$('project-file').files[0];if(!f||controller)return;controller=new AbortController();busy(true);if(f.size>2000000)throw Error('Fichier trop volumineux');const raw=JSON.parse(await f.text());if(controller.signal.aborted)return;load(raw);}catch(e){$('project-status').textContent='Import refusé : '+e.message;}finally{controller=null;busy(false);$('project-file').value='';}});
 $('current').addEventListener('click',()=>{try{load(JSON.parse(localStorage.getItem('studio-niko-autocoder-v2')));}catch(e){$('project-status').textContent='Aucun projet local valide. Exporte le JSON depuis AutoCoder.';}});
-$('audit').addEventListener('click',()=>{if(!project)return;const r=audit(project.files);$('journal').textContent=JSON.stringify(r,null,2);track('static_audit');});
+$('audit').addEventListener('click',async()=>{if(!project||controller)return;try{const r=await createNativeBus({project}).call('project.audit');$('journal').textContent=JSON.stringify(r.result,null,2);track('static_audit');}catch(e){$('journal').textContent=e.message;}});
 async function refresh(){ $('server').textContent='Vérification en cours…';try{const r=await fetch('./api/status',{cache:'no-store',signal:AbortSignal.timeout?AbortSignal.timeout(8000):undefined});if(!r.ok)throw Error();const data=await r.json();$('server').textContent=data.configured?'Serveur configuré : '+(data.providers?.join(', ')||'fournisseurs non précisés')+' (clés non testées)':'Serveur IA non configuré.';}catch{$('server').textContent='API indisponible ou hors ligne. Audit local disponible.';}}
 $('refresh').addEventListener('click',refresh);
 function showChange(){const name=$('changes').value;$('before').value=project?.files.find(f=>f.name.toLowerCase()===name.toLowerCase())?.content??'';$('after').value=result?.proposal?.find(f=>f.name===name)?.content??'';}
@@ -56,7 +57,7 @@ window.addEventListener('pagehide',()=>{controller?.abort();$('token').value='';
 
 $('gh-list').addEventListener('click',async()=>{
  if(controller)return;controller=new AbortController();snapshot=null;$('gh-files').replaceChildren();busy(true);$('gh-status').textContent='Lecture GitHub…';
- try{snapshot=await listPublicRepo($('gh-repo').value,{signal:controller.signal,branch:$('gh-branch').value.trim()});fill($('gh-files'),snapshot.files.map(f=>[f.path,f.path+' · '+f.size+' o']));$('gh-status').textContent=snapshot.repo+' / '+snapshot.branch+' @ '+snapshot.commit.slice(0,12)+' · '+snapshot.files.length+' fichiers admissibles / '+snapshot.total+' entrées'+(snapshot.partial?' · inventaire partiel':'')+'. Sélection manuelle requise.';}
+ try{snapshot=(await createNativeBus({permissions:['github.public.read'],signal:controller.signal}).call('github.snapshot',{repo:$('gh-repo').value,branch:$('gh-branch').value.trim()})).result;fill($('gh-files'),snapshot.files.map(f=>[f.path,f.path+' · '+f.size+' o']));$('gh-status').textContent=snapshot.repo+' / '+snapshot.branch+' @ '+snapshot.commit.slice(0,12)+' · '+snapshot.files.length+' fichiers admissibles / '+snapshot.total+' entrées'+(snapshot.partial?' · inventaire partiel':'')+'. Sélection manuelle requise.';}
  catch(e){$('gh-status').textContent=e.message;}finally{controller=null;busy(false);}
 });
 $('gh-load').addEventListener('click',async()=>{
@@ -85,9 +86,9 @@ $('self-open').addEventListener('click',()=>{
  $('gh-repo').value=SELF_REPO;$('gh-branch').value='feature/code-mode-x-v1';
  $('gh-repo').closest('details').open=true;$('gh-list').click();
 });
-$('evolution-plan').addEventListener('click',()=>{
+$('evolution-plan').addEventListener('click',async()=>{
  if(!project||controller)return;
- try{evolution=improvementPlan(project);$('evolution-report').textContent=JSON.stringify(evolution,null,2);fill($('evolution-task'),evolution.tasks.map(t=>[t.id,t.title]));$('evolution-status').textContent=evolution.tasks.length+' intervention(s) proposées, aucun test exécuté.';busy(false);}
+ try{evolution=(await createNativeBus({project}).call('project.roadmap')).result;$('evolution-report').textContent=JSON.stringify(evolution,null,2);fill($('evolution-task'),evolution.tasks.map(t=>[t.id,t.title]));$('evolution-status').textContent=evolution.tasks.length+' intervention(s) proposées, aucun test exécuté.';busy(false);}
  catch(e){$('evolution-status').textContent=e.message;}
 });
 $('evolution-prepare').addEventListener('click',()=>{
@@ -112,9 +113,9 @@ async function fetchCatalog(reset){
  if(reset){catalog=[];catalogPage=0;catalogNext=false;catalogOwner=$('catalog-owner').value.trim();renderCatalog();}
  controller=new AbortController();busy(true);$('catalog-status').textContent='Lecture du catalogue…';
  try{
-  const data=await listOwnerPage(catalogOwner,catalogPage+1,{signal:controller.signal});
+  const data=(await createNativeBus({permissions:['github.public.read'],signal:controller.signal}).call('github.catalog',{owner:catalogOwner,page:catalogPage+1})).result;
   const map=new Map(catalog.map(r=>[r.repo.toLowerCase(),r]));
-  for(const row of normalizeCatalog(data.rows))map.set(row.repo.toLowerCase(),row);
+  for(const row of data.rows)map.set(row.repo.toLowerCase(),row);
   catalog=[...map.values()];catalogPage++;catalogNext=data.hasNext;renderCatalog();
   $('catalog-status').textContent=catalog.length+' dépôts publics non archivés chargés · page '+catalogPage+(data.hasNext?' · autres pages disponibles':data.capped?' · limite de pagination atteinte':' · dernière page reçue')+'.';
  }catch(e){$('catalog-status').textContent='Catalogue : '+e.message;}
@@ -143,3 +144,10 @@ $('maintenance-select').addEventListener('change',renderTask);
 $('maintenance-prepare').addEventListener('click',()=>{if(controller)return;try{$('prompt').value=prepareTask(selectedTask(),project);$('consent').checked=false;$('memory-use').checked=false;$('maintenance-status').textContent='Mission préparée, à relire avant lancement.';$('prompt').focus();}catch(e){$('maintenance-status').textContent=e.message;}});
 $('maintenance-update').addEventListener('click',()=>{if(controller)return;try{const t=selectedTask();if(!t)throw Error('Sélection requise');const next=transitionTask(t,$('maintenance-state').value,$('maintenance-evidence').value);saveQueue(localStorage,readQueue(localStorage).map(r=>r.id===t.id?next:r));renderQueue();$('maintenance-status').textContent='État déclaré enregistré, pas une preuve indépendante.';}catch(e){$('maintenance-status').textContent=e.message;}});
 renderQueue();
+
+fill($('native-tool'),listNativeTools().filter(t=>!t.network).map(t=>[t.name,t.name+' — '+t.description]));
+$('native-run').addEventListener('click',async()=>{
+ if(!project||controller)return;
+ try{const bus=createNativeBus({project,maxCalls:1});const r=await bus.call($('native-tool').value);$('native-result').textContent=JSON.stringify({result:r.result,journal:bus.journal()},null,2);}
+ catch(e){$('native-result').textContent=e.message;}
+});
