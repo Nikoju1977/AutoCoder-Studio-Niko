@@ -36,10 +36,13 @@ try{
  assert.ok(await page.evaluate(()=>document.body.scrollWidth<=innerWidth+1),'Mobile overflow');
  await page.route('https://api.github.com/users/Nikoju1977/repos?**',route=>route.fulfill({json:[{full_name:'Nikoju1977/Audio',private:false,archived:false,default_branch:'main',description:'Synthé'}],headers:{'Access-Control-Allow-Origin':'*'}}));
  await page.locator('#catalog-load').click();
- await page.waitForFunction(()=>document.querySelector('#catalog-select').options.length===1);
+ await page.waitForFunction(()=>document.querySelector('#catalog-info').textContent.includes('Nikoju1977/Audio')&&!document.querySelector('#catalog-open').disabled);
  assert.match(await page.locator('#catalog-info').innerText(),/Nikoju1977\/Audio/);
  await page.locator('#catalog-query').fill('absent');
  assert.equal(await page.locator('#catalog-open').isDisabled(),true);
+ await page.locator('#catalog-query').fill('Audio');
+ assert.equal(await page.locator('#catalog-select').inputValue(),'Nikoju1977/Audio');
+ assert.equal(await page.locator('#catalog-open').isDisabled(),false);
  assert.deepEqual(errors,[]);
  console.log('PASS Code Mode X: local audit, roadmap, memory, consent, mocked agent flow, export, mobile layout');
 }finally{await browser.close();}
