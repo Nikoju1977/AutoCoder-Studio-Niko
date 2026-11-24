@@ -177,3 +177,5 @@ $('quantum-run').addEventListener('click',async()=>{
  try{const b=createNativeBus({permissions:['quantum.compute'],maxCalls:1});const r=await b.call('quantum.simulate',{circuit:$('quantum-circuit').value});$('quantum-result').textContent=JSON.stringify(r.result,null,2);}
  catch(e){$('quantum-result').textContent=e.message;}
 });
+
+$('qpu-export').addEventListener('click',()=>{try{const data=JSON.parse($('quantum-circuit').value);const u=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=u;a.download='circuit.json';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);}catch(e){$('quantum-result').textContent='Circuit JSON invalide : '+e.message;}});
