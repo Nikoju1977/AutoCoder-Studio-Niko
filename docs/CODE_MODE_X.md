@@ -46,3 +46,6 @@ Le budget de mission propose une ou deux tentatives (3 ou 5 appels maximum). Le 
 
 ## V10 — Master Control
 Le catalogue charge les dépôts publics non archivés d'un compte GitHub, par pages de 100 (maximum 20 pages, quota public). Recherche locale et ouverture d'un projet vers l'explorateur V6. Le suivi local conserve au plus 200 événements (sélection, audit statique, proposition) associés au commit; aucune clé ni code source. L'effacement est explicite. Les tests, déploiements et la stabilité ne sont pas déduits de ces événements. Aucun accès privé, push ou scan global automatique.
+
+## V11 — AutoMaintenance
+File locale de 100 interventions maximum, priorités P0–P3, liée au dépôt et au commit exact. Ajouter manuellement ou depuis AutoEvolution. Préparer une mission ne lance aucun appel IA; un commit différent exige une nouvelle intervention. Les états sont déclarés par l'utilisateur, et la validation exige une référence de preuve. Le nom de branche suggéré n'est pas une branche créée. Aucun push, fusion, exécution automatique ni planification en arrière-plan. Les notes et missions sont stockées localement en clair : ne pas y saisir de secrets.
