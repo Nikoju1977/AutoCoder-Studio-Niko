@@ -68,8 +68,8 @@ export function createHttpAgentTransport({token,origin='https://autocoder-studio
   const url=new URL(origin);
   if(url.username||url.password||url.pathname!=='/'||url.search||url.hash||
     !(url.protocol==='https:'||(url.protocol==='http:'&&['localhost','127.0.0.1'].includes(url.hostname))))throw Error('Invalid server origin');
-  return async ({prompt,files,signal})=>{
-    const body=JSON.stringify({prompt,files});
+  return async ({role,prompt,files,signal})=>{
+    const body=JSON.stringify({prompt,files,...(role?{role}:{})});
     if(new TextEncoder().encode(body).length>80000)throw Error('Request size exceeded');
     const controller=new AbortController();
     const cancel=()=>controller.abort();

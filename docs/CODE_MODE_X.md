@@ -16,3 +16,9 @@ L'export AutoCoder natif (files objet) et le tableau name/content sont acceptés
 Audit gratuit hors ligne : node scripts/code-mode-x.mjs projet.json
 Équipe IA : définir AUTOCODER_ACCESS_TOKEN dans l'environnement, puis node scripts/code-mode-x.mjs projet.json --team "Améliorer la gestion des erreurs".
 Le mode --team transmet explicitement le contexte au serveur et à son fournisseur IA ; le jeton reste hors des fichiers. Ne pas y envoyer de secrets. Les appels peuvent être facturés par le fournisseur, l'accès API et ses quotas ne sont pas garantis. Aucun accès réseau n'est requis pour les tests avec transport simulé. Aucun déploiement ni exécution du code généré. Interface graphique à intégrer.
+
+## V3 — fournisseurs supplémentaires
+OpenAI est conservé. Deux clés serveur facultatives : MISTRAL_API_KEY et AGNES_API_KEY. Modèles modifiables via MISTRAL_MODEL (mistral-small-latest) et AGNES_MODEL (agnes-2.5-flash).
+Dans Vercel > projet > Settings > Environment Variables, saisir les clés comme variables sensibles et conserver AUTOCODER_ACCESS_TOKEN (32 caractères minimum). Redéployer la branche après configuration. Aucune clé dans le dépôt ni dans le navigateur.
+AUTOCODER_DEFAULT_PROVIDER permet de choisir openai, mistral ou agnes. Sans choix, le premier configuré est utilisé dans cet ordre. Le client peut spécifier provider et role dans POST /api/generate. Les variables AUTOCODER_ARCHITECT_PROVIDER, AUTOCODER_DEVELOPER_PROVIDER et AUTOCODER_CRITIC_PROVIDER permettent une répartition indépendante. Pas de basculement automatique vers un tiers en cas d'erreur : éviter des coûts et transferts de code inattendus. Aucun appel réel sans clés configurées.
+Sources : https://docs.mistral.ai/api/endpoint/chat ; https://github.com/AgnesAI-Labs/AgnesAI-Models/blob/main/MODEL_CATALOG.md .

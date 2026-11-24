@@ -1,6 +1,7 @@
 /** Optional AI generation endpoint for Vercel (Node.js runtime). */
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { webStandardsForPrompt } from './web-standards.mjs';
+import { availableProviders, selectProvider, knownProvider, knownRole, providerBody, extractText } from './providers.mjs';
 
 const MAX_REQUEST_BYTES = 80_000;
 const MAX_PROMPT_LENGTH = 4_000;
@@ -103,8 +104,7 @@ export default async function handler(req, res) {
   }
 
   const expected = process.env.AUTOCODER_ACCESS_TOKEN;
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!expected || expected.length < MIN_TOKEN_LENGTH || !apiKey || !apiKey.trim()) {
+  if (!expected || expected.length < MIN_TOKEN_LENGTH || !availableProviders().length) {
     return asJson(res, 503, { error: 'Le serveur IA n’est pas configuré.' });
   }
 
@@ -130,25 +130,24 @@ export default async function handler(req, res) {
     return asJson(res, 400, { error: validation.error });
   }
 
+  if ((parsedBody.provider !== undefined && !knownProvider(parsedBody.provider)) ||
+      (parsedBody.role !== undefined && !knownRole(parsedBody.role))) {
+    return asJson(res, 400, { error: 'Fournisseur ou rôle invalide.' });
+  }
+  const config = selectProvider(parsedBody);
+  if (!config) return asJson(res, 503, { error: 'Fournisseur IA non configuré.' });
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
 
   try {
-    const upstream = await fetch('https://api.openai.com/v1/responses', {
+    const instructions = ['Tu es un assistant de développement logiciel exigeant et francophone. Génère des fichiers exécutables et cohérents, sans prétendre avoir exécuté les tests. Retourne un plan concis, des notes utiles et le contenu complet de chaque fichier demandé. N’inclus aucun secret.', webStandardsForPrompt(parsedBody.prompt, validation.context)].filter(Boolean).join('\n\n');
+    const input = JSON.stringify({ demande: parsedBody.prompt, projetExistant: validation.context });
+    const upstream = await fetch(config.url, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { Authorization: `Bearer ${config.key}`, 'Content-Type': 'application/json' },
       signal: controller.signal,
-      body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || 'gpt-4.1-mini',
-        store: false,
-        max_output_tokens: 12_000,
-        instructions: ['Tu es un assistant de développement logiciel exigeant et francophone. Génère des fichiers exécutables et cohérents, sans prétendre avoir exécuté les tests. Retourne un plan concis, des notes utiles et le contenu complet de chaque fichier demandé. N’inclus aucun secret.', webStandardsForPrompt(parsedBody.prompt, validation.context)].filter(Boolean).join('\n\n'),
-        input: JSON.stringify({ demande: parsedBody.prompt, projetExistant: validation.context }),
-        text: { format: { type: 'json_schema', name: 'autocoder_project', strict: true, schema } },
-      }),
+      redirect: 'error',
+      body: JSON.stringify(providerBody(config,instructions,input,schema)),
     });
 
     if (!upstream.ok) {
@@ -156,11 +155,7 @@ export default async function handler(req, res) {
     }
 
     const response = await upstream.json();
-    const plain = (Array.isArray(response?.output) ? response.output : [])
-      .flatMap(item => Array.isArray(item?.content) ? item.content : [])
-      .filter(item => item?.type === 'output_text' && typeof item.text === 'string')
-      .map(item => item.text)
-      .join('');
+    const plain = extractText(config,response);
 
     if (!plain) {
       return asJson(res, 502, { error: 'Le modèle n’a pas renvoyé de code exploitable.' });
@@ -174,7 +169,7 @@ export default async function handler(req, res) {
     }
 
     const result = validateResponse(payload);
-    if (!result) {
+    if (!result || [process.env.OPENAI_API_KEY,process.env.MISTRAL_API_KEY,process.env.AGNES_API_KEY,expected].some(key=>key?.trim() && JSON.stringify(result).includes(key.trim()))) {
       return asJson(res, 502, { error: 'Le modèle a retourné un projet invalide.' });
     }
 
