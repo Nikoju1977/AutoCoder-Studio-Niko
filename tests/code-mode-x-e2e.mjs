@@ -9,6 +9,7 @@ try{
  page.on('pageerror',e=>errors.push(String(e)));
  await page.route('**/api/generate',async route=>{
    const body=route.request().postDataJSON();roles.push(body.role);
+   if(body.prompt.startsWith('Sélectionne zéro'))return route.fulfill({json:{files:[{name:'tools.json',content:'{"tools":["project.audit"]}'}]}});
    const file=body.role==='architect'?{name:'plan.md',content:'Corriger JSON'}:body.role==='developer'?{name:'config.json',content:'{"ok":true}'}:{name:'review.json',content:'{"accept":true,"issues":[]}'};
    await route.fulfill({json:{files:[file],plan:[],notes:''}});
  });
@@ -43,6 +44,13 @@ try{
  await page.locator('#catalog-query').fill('Audio');
  assert.equal(await page.locator('#catalog-select').inputValue(),'Nikoju1977/Audio');
  assert.equal(await page.locator('#catalog-open').isDisabled(),false);
+ await page.locator('#native-auto').check();
+ await page.locator('#token').fill('test-token-with-at-least-32-characters');
+ await page.locator('#consent').check();
+ await page.locator('#run').click();
+ await page.waitForFunction(()=>!document.querySelector('#export').disabled);
+ assert.deepEqual(roles.slice(3),['architect','architect','developer','critic']);
+ assert.match(await page.locator('#native-result').innerText(),/project.audit/);
  assert.deepEqual(errors,[]);
  console.log('PASS Code Mode X: local audit, roadmap, memory, consent, mocked agent flow, export, mobile layout');
 }finally{await browser.close();}
