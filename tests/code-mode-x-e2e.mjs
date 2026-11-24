@@ -51,6 +51,13 @@ try{
  await page.waitForFunction(()=>!document.querySelector('#export').disabled);
  assert.deepEqual(roles.slice(3),['architect','architect','developer','critic']);
  assert.match(await page.locator('#native-result').innerText(),/project.audit/);
+ await page.locator('#classical-plan').click();
+ assert.match(await page.locator('#classical-result').innerText(),/criticalPathEstimate/);
+ await page.locator('#classical-run').click();
+ await page.waitForFunction(()=>document.querySelector('#classical-result').textContent.includes('classical_local'));
+ assert.match(await page.locator('#classical-result').innerText(),/JSON_INVALID/);
+ await page.locator('#classical-optimize').click();
+ assert.match(await page.locator('#classical-opt-result').innerText(),/"totalValue": 9/);
  assert.deepEqual(errors,[]);
  console.log('PASS Code Mode X: local audit, roadmap, memory, consent, mocked agent flow, export, mobile layout');
 }finally{await browser.close();}
