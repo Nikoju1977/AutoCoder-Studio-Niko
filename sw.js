@@ -1,7 +1,7 @@
 /* La coque de l'application est consultable hors-ligne après un premier chargement.
    Pyodide provient d'un CDN : première exécution Python = connexion nécessaire. */
-const CACHE = 'studio-niko-autocoder-v5';
-const SHELL = ['./code-mode-x.html','./code-mode-x.css','./code-mode-x-ui.mjs','./code-mode-x-project.mjs','./code-mode-x.mjs','./code-mode-x-team.mjs','./','./index.html','./styles.css','./app.js','./web-guidance.js','./studio-niko-core.js','./py-worker.js','./preview.html','./preview-host.js','./manifest.webmanifest','./icons/icon.svg','./icons/icon-192.png','./icons/icon-512.png'];
+const CACHE = 'studio-niko-autocoder-v6';
+const SHELL = ['./code-mode-x-github.mjs','./code-mode-x.html','./code-mode-x.css','./code-mode-x-ui.mjs','./code-mode-x-project.mjs','./code-mode-x.mjs','./code-mode-x-team.mjs','./','./index.html','./styles.css','./app.js','./web-guidance.js','./studio-niko-core.js','./py-worker.js','./preview.html','./preview-host.js','./manifest.webmanifest','./icons/icon.svg','./icons/icon-192.png','./icons/icon-512.png'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting()));
 });

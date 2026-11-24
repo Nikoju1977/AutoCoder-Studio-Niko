@@ -1,14 +1,17 @@
 import {audit,validateFiles} from './code-mode-x.mjs';
 import {runAgentTeam,createHttpAgentTransport} from './code-mode-x-team.mjs';
 import {parseProject,proposalExport} from './code-mode-x-project.mjs';
+import {listPublicRepo,loadPublicSelection,githubProposal} from './code-mode-x-github.mjs';
 const $=id=>document.getElementById(id), roles=['architect','developer','critic'];
-let project=null,result=null,controller=null,downloadUrl=null;
+let project=null,result=null,controller=null,downloadUrl=null,snapshot=null;
 function fill(select,values){select.replaceChildren(...values.map(([value,label])=>new Option(label,value)));}
 for(const role of roles)fill($(role),[['','Automatique (serveur)'],['openai','OpenAI'],['mistral','Mistral'],['agnes','Agnes']]);
-function busy(on){for(const id of ['project-file','current','token','prompt','consent',...roles])$(id).disabled=on;$('audit').disabled=on||!project;$('run').disabled=on||!project;$('stop').disabled=!on;}
+function busy(on){for(const id of ['project-file','current','token','prompt','consent','gh-repo','gh-list',...roles])$(id).disabled=on;$('audit').disabled=on||!project;$('run').disabled=on||!project;$('stop').disabled=!on;$('gh-files').disabled=on||!snapshot;$('gh-load').disabled=on||!snapshot;}
 function resetResult(){result=null;$('changes').replaceChildren();$('changes').disabled=true;$('export').disabled=true;$('before').value='';$('after').value='';$('review-status').textContent='Aucune proposition.';if(downloadUrl){URL.revokeObjectURL(downloadUrl);downloadUrl=null;}$('download').hidden=true;$('download').removeAttribute('href');}
 function viewSource(){ $('source').value=project?.files.find(f=>f.name===$('file-select').value)?.content??'';}
-function load(raw){const p=parseProject(raw);project=p;resetResult();fill($('file-select'),p.files.map(f=>[f.name,f.name]));$('file-select').disabled=false;viewSource();$('project-status').textContent=p.name+' · '+p.files.length+' fichier(s)';$('journal').textContent='Projet chargé, aucun audit exécuté.';busy(false);}
+function load(raw){loadProject(parseProject(raw));}
+function displayName(name){return project?.github?.mapping.find(m=>m.name===name)?.path||name;}
+function loadProject(p){project=p;$('consent').checked=false;resetResult();fill($('file-select'),p.files.map(f=>[f.name,displayName(f.name)]));$('file-select').disabled=false;viewSource();$('project-status').textContent=p.name+' · '+p.files.length+' fichier(s)';$('journal').textContent='Projet chargé, aucun audit exécuté.';busy(false);}
 $('file-select').addEventListener('change',viewSource);
 $('project-file').addEventListener('change',async()=>{try{const f=$('project-file').files[0];if(!f)return;if(f.size>2000000)throw Error('Fichier trop volumineux');load(JSON.parse(await f.text()));}catch(e){$('project-status').textContent='Import refusé : '+e.message;}finally{$('project-file').value='';}});
 $('current').addEventListener('click',()=>{try{load(JSON.parse(localStorage.getItem('studio-niko-autocoder-v2')));}catch(e){$('project-status').textContent='Aucun projet local valide. Exporte le JSON depuis AutoCoder.';}});
@@ -27,17 +30,30 @@ $('run').addEventListener('click',async()=>{
  let calls=0;
  try{
    const transport=createHttpAgentTransport({token,origin:location.origin});
-   result=await runAgentTeam({prompt,files:project.files,signal:controller.signal,request:async args=>{
+   const mission=project.github?prompt+'\nFichiers sélectionnés (alias vers chemin GitHub) : '+JSON.stringify(project.github.mapping.map(({name,path})=>({name,path})))+'\nModifie uniquement ces alias, conserve les noms.':prompt;
+   if(mission.length>2400)throw Error('Mission et chemins trop longs : réduire la sélection.');
+   result=await runAgentTeam({prompt:mission,files:project.files,signal:controller.signal,request:async args=>{
      calls++;$('run-status').textContent='Appel '+calls+' / 7 · '+args.role+' · '+(selections[args.role]||'automatique');
      return transport({...args,provider:selections[args.role]||undefined});
    }});
    $('journal').textContent=JSON.stringify({events:result.events,agents:result.agents,providerCalls:result.providerCalls,testsExecuted:false},null,2);
    $('run-status').textContent=result.status==='review_required'?'Proposition à examiner — aucun test exécuté.':result.status==='cancelled'?'Mission annulée.':'Mission bloquée : '+(result.reason||result.status);
    if(result.status==='review_required'&&result.proposal?.length){
-     fill($('changes'),result.changedFiles.map(n=>[n,n]));$('changes').disabled=false;$('export').disabled=false;
+     fill($('changes'),result.changedFiles.map(n=>[n,displayName(n)]));$('changes').disabled=false;$('export').disabled=false;
      $('review-status').textContent=result.changedFiles.length+' fichier(s) proposés. Compare avant export.';showChange();
    }
  }catch(e){$('run-status').textContent='Mission impossible : '+e.message;}finally{controller=null;busy(false);$('token').value='';$('consent').checked=false;}
 });
-$('export').addEventListener('click',()=>{if(!project||result?.status!=='review_required')return;try{const payload=proposalExport(project,result);if(downloadUrl)URL.revokeObjectURL(downloadUrl);downloadUrl=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));const a=$('download');a.href=downloadUrl;a.download='code-mode-x-proposition.json';a.hidden=false;a.click();}catch(e){$('review-status').textContent=e.message;}});
+$('export').addEventListener('click',()=>{if(!project||result?.status!=='review_required')return;try{const payload=project.github?githubProposal(project,result):proposalExport(project,result);if(downloadUrl)URL.revokeObjectURL(downloadUrl);downloadUrl=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));const a=$('download');a.href=downloadUrl;a.download=project.github?'code-mode-x-github-proposition.json':'code-mode-x-proposition.json';a.hidden=false;a.click();}catch(e){$('review-status').textContent=e.message;}});
 window.addEventListener('pagehide',()=>{controller?.abort();$('token').value='';if(downloadUrl)URL.revokeObjectURL(downloadUrl);});
+
+$('gh-list').addEventListener('click',async()=>{
+ if(controller)return;controller=new AbortController();snapshot=null;$('gh-files').replaceChildren();busy(true);$('gh-status').textContent='Lecture GitHub…';
+ try{snapshot=await listPublicRepo($('gh-repo').value,{signal:controller.signal});fill($('gh-files'),snapshot.files.map(f=>[f.path,f.path+' · '+f.size+' o']));$('gh-status').textContent=snapshot.repo+' @ '+snapshot.commit.slice(0,12)+' · '+snapshot.files.length+' fichiers admissibles / '+snapshot.total+' entrées'+(snapshot.partial?' · inventaire partiel':'')+'. Sélection manuelle requise.';}
+ catch(e){$('gh-status').textContent=e.message;}finally{controller=null;busy(false);}
+});
+$('gh-load').addEventListener('click',async()=>{
+ if(controller||!snapshot)return;const selected=Array.from($('gh-files').selectedOptions,o=>o.value);controller=new AbortController();busy(true);
+ try{const p=await loadPublicSelection(snapshot,selected,{signal:controller.signal});loadProject(p);$('gh-status').textContent='Sélection chargée au commit '+p.github.commit.slice(0,12)+' ; aucun fichier distant modifié.';}
+ catch(e){$('gh-status').textContent=e.message;}finally{controller=null;busy(false);}
+});
