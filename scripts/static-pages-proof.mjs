@@ -2,7 +2,7 @@ import {createHash} from 'node:crypto';
 import {readFileSync,writeFileSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
 const OWNER='Nikoju1977',MAX=2*1024*1024;
-const allowed=new Set(['the-lovestronautes-machine','oracle-du-jardinier']);
+const allowed=new Set(['the-lovestronautes-machine','oracle-du-jardinier','Neural-Art-mars-2026','ia-studio-cine']);
 const hash=b=>createHash('sha256').update(b).digest('hex');
 export function validateManifest(m){
  if(m?.version!==1||!Array.isArray(m.targets)||!m.targets.length||m.targets.length>8)throw Error('Invalid manifest');

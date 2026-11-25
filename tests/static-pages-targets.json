@@ -21,6 +21,25 @@
         "sw.js",
         "manifest.webmanifest"
       ]
+    },
+    {
+      "repo": "Neural-Art-mars-2026",
+      "commit": "ff745ae4dbe3132204ed5d5ad1941745f91d6a45",
+      "pagesRun": 45311874714,
+      "files": [
+        "index.html",
+        "manifest.json",
+        "sw.js"
+      ]
+    },
+    {
+      "repo": "ia-studio-cine",
+      "commit": "b6a61286dc2b320f2b6aa3f30d8480c8b02ec96b",
+      "pagesRun": 45311871162,
+      "files": [
+        "index.html",
+        "manifest.json"
+      ]
     }
   ]
 }
