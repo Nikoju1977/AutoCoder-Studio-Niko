@@ -1,6 +1,7 @@
 // Code Mode Pro V24: audit immutable Nexus deployment, never initiate a broadcast.
 import {createHash} from 'node:crypto';
 import {writeFileSync} from 'node:fs';
+import {patchRecording} from './nexus-recording-patch.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 import {inspectFile} from '../deep-audit.mjs';
@@ -49,6 +50,14 @@ try{
   if(native.length)try{const project={name:'Nexus 17.5',files:native};const wf=await executeWorkflow(defaultWorkflow,{bus:createNativeBus({project,maxCalls:3})});assert.equal(wf.status,'completed');const sdk=createClient(r=>createGateway({project,maxCalls:1}).dispatch(r));assert.equal((await sdk.call('project.inventory')).files.length,native.length);result.sdk='passed';}catch{result.sdk='blocked';}
   report.lots.push(result);save();
  }
+ const originalVideo=assets.get('video.js');
+ if(originalVideo){
+  const candidate=patchRecording(originalVideo.toString('utf8'));
+  const audit=inspectFile({path:'video.js',content:candidate});
+  assert.equal(audit.syntax.status,'valid');
+  report.repair={originalSha1:createHash('sha1').update(originalVideo).digest('hex'),candidateSha1:createHash('sha1').update(candidate).digest('hex'),syntax:audit.syntax.status,productionChanged:false};
+  assets.set('video.js',Buffer.from(candidate));
+ }
  // Exact bytes served through intercepted local-origin requests. No real relay, media or remote control.
  const required=['index.html','video.html','app.js','hybrid.js','overlay.js','video-core.js','video.js','style.css','video.css'];
  if(required.some(p=>!assets.has(p)))throw Error('Required verified assets missing');
@@ -91,7 +100,36 @@ try{
    }catch(e){row.status='failed';row.errorType=e.name;row.diagnostic=String(e.message).replace(/[^a-zA-Z0-9 _:.\-]/g,' ').slice(0,180);}
    finally{row.pageErrors=errors.length;row.externalRequestsBlocked=external.length;await context.close();save();}
   }
+  // Simulated encoder events exercise cap/discard behavior without allocating 150 MiB.
+  report.recordingRegression=[];
+  for(const version of ['original','candidate']){
+   const context=await browser.newContext({serviceWorkers:'block',acceptDownloads:true});
+   await context.addInitScript(()=>{
+    const state=window.__recordTest={downloads:0,stops:0};
+    HTMLCanvasElement.prototype.captureStream=function(){return {getTracks:()=>[{stop:()=>{}}]}};
+    const old=HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click=function(){if(this.download){state.downloads++;return;}return old.call(this)};
+    window.MediaRecorder=class {
+     static isTypeSupported(){return true}
+     constructor(){this.state='inactive';this.mimeType='video/webm';state.recorder=this;}
+     start(){this.state='recording'}
+     emit(size){const b=new Blob(['fixture']);Object.defineProperty(b,'size',{value:size});this.ondataavailable({data:b});}
+     stop(){if(this.state==='inactive')return;this.state='inactive';state.stops++;queueMicrotask(()=>this.onstop());}
+    };
+   });
+   await context.route('**/*',route=>{const u=new URL(route.request().url());if(u.origin!=='https://nexus-audit.invalid')return route.abort();const p=u.pathname.slice(1),data=p==='video.js'&&version==='original'?originalVideo:assets.get(p);return data?route.fulfill({status:200,contentType:mime(p),body:data}):route.fulfill({status:404,body:'Not found'});});
+   try{
+    const page=await context.newPage();await page.goto('https://nexus-audit.invalid/video.html');
+    await page.locator('#rec').click();
+    const first=await page.evaluate(async()=>{const s=window.__recordTest;s.recorder.emit(100*1024**2);s.recorder.emit(25*1024**2);if(s.recorder.state==='recording')s.recorder.emit(30*1024**2);await Promise.resolve();return {downloads:s.downloads,stops:s.stops};});
+    assert.equal(first.stops,1);assert.equal(first.downloads,version==='candidate'?1:0);
+    await page.locator('#rec').click();
+    const discard=await page.evaluate(async()=>{const s=window.__recordTest;s.recorder.emit(1024);document.querySelector('#clear').click();document.querySelector('#stop').click();await Promise.resolve();return s.downloads;});
+    assert.equal(discard,first.downloads);
+    report.recordingRegression.push({version,capExport:first.downloads===1,discardPreserved:true,encoder:'mock',passed:true});
+   }finally{await context.close();save();}
+  }
  }finally{await browser.close();}
- report.status=report.browser.every(r=>r.status==='passed')&&report.lots.every(r=>r.sdk!=='blocked')&&report.files.every(r=>r.status==='verified'||(['README.md','vercel.json'].includes(r.path)&&r.status==='unavailable'))?'passed':'partial';
+ report.status=report.recordingRegression?.length===2&&report.recordingRegression.every(r=>r.passed)&&report.browser.every(r=>r.status==='passed')&&report.lots.every(r=>r.sdk!=='blocked')&&report.files.every(r=>r.status==='verified'||(['README.md','vercel.json'].includes(r.path)&&r.status==='unavailable'))?'passed':'partial';
 }catch(e){report.status='blocked';report.errorType=e.name;}
 finally{save();console.log('NEXUS_AUDIT '+JSON.stringify(report));if(report.status!=='passed')process.exitCode=1;}
