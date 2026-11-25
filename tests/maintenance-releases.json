@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "date": "2026-11-25",
+  "rows": [
+    {
+      "repo": "Nikoju1977/the-lovestronautes-machine",
+      "commit": "ca0a8e589ca9b9e9dd1d06d31279df446fc63421",
+      "pr": 31,
+      "ci": 45520549669,
+      "pages": 45520549011,
+      "incident": 45520549762
+    },
+    {
+      "repo": "Nikoju1977/job-search",
+      "commit": "db7f3f4fd0a6e3b6dc8d0e6e9e51575bc45c532d",
+      "pr": 17,
+      "ci": 45520568481,
+      "pages": null,
+      "incident": null
+    },
+    {
+      "repo": "Nikoju1977/medicalvisionproai",
+      "commit": "85942d8518aae49efa60da692a4453130e8d3c04",
+      "pr": 16,
+      "ci": 45520582551,
+      "pages": 45520581607,
+      "incident": null
+    },
+    {
+      "repo": "Nikoju1977/Nikoju1977",
+      "commit": "7f413735aea8fe48673e247018ac4d305f982eab",
+      "pr": 7,
+      "ci": 45521124922,
+      "pages": null,
+      "incident": null
+    }
+  ]
+}
