@@ -1,0 +1,28 @@
+name: Code Mode Pro Nexus 17.5 real audit
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/nexus-audit.mjs'
+      - '.github/workflows/nexus-audit.yml'
+permissions:
+  contents: read
+jobs:
+  nexus:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Verify deployment bytes and isolated browser behavior
+        run: node scripts/nexus-audit.mjs
+      - name: Preserve evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: nexus-audit-report
+          path: nexus-audit-report.json
+          if-no-files-found: warn
