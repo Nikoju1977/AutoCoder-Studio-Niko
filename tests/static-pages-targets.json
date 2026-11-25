@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "targets": [
+    {
+      "repo": "the-lovestronautes-machine",
+      "commit": "2bde151a1497d9f7869646fefd17e3f5fb1bde84",
+      "pagesRun": 45548941093,
+      "files": [
+        "index.html",
+        "sw.js",
+        "composition-pro.js",
+        "manifest.json"
+      ]
+    },
+    {
+      "repo": "oracle-du-jardinier",
+      "commit": "b62442ec1a9bee5516a593cff0ddebcb22ab72b8",
+      "pagesRun": 45525523910,
+      "files": [
+        "index.html",
+        "sw.js",
+        "manifest.webmanifest"
+      ]
+    }
+  ]
+}
