@@ -19,11 +19,23 @@ try{
   for(const f of inventory.slice(i,i+3)){
    const row={path:f.path,expectedSha1:f.sha};lot.push(row);report.files.push(row);
    try{
-    const r=await fetch(new URL(f.path,base),{redirect:'error',signal:AbortSignal.timeout(15000)});
-    row.http=r.status;if(!r.ok){row.status='unavailable';continue;}
-    const b=Buffer.from(await r.arrayBuffer());if(b.length>1048576)throw Error('File cap');
+    // Public alias is a fallback transport, never a substitute for the pinned bytes.
+    row.attempts=[];
+    let b=null;
+    for(const origin of [base,'https://niko-nexus-remote-17-5.vercel.app/']){
+     const attempt={origin};row.attempts.push(attempt);
+     try{
+      const r=await fetch(new URL(f.path,origin),{redirect:'error',signal:AbortSignal.timeout(10000)});
+      attempt.http=r.status;if(!r.ok)continue;
+      const candidate=Buffer.from(await r.arrayBuffer());
+      if(candidate.length>1048576){attempt.status='size_limit';continue;}
+      attempt.sha1=createHash('sha1').update(candidate).digest('hex');
+      if(attempt.sha1!==f.sha){attempt.status='hash_mismatch';continue;}
+      b=candidate;attempt.status='verified';row.http=r.status;break;
+     }catch(e){attempt.status='request_failed';attempt.errorType=e.name;attempt.errorCode=String(e.cause?.code||'unknown').slice(0,60);}
+    }
+    if(!b){row.status=row.attempts.some(a=>a.status==='hash_mismatch')?'hash_mismatch':row.attempts.some(a=>a.http)?'unavailable':'read_failed';continue;}
     row.bytes=b.length;row.sha1=createHash('sha1').update(b).digest('hex');
-    if(row.sha1!==f.sha){row.status='hash_mismatch';continue;}
     row.status='verified';assets.set(f.path,b);
     if(f.path.endsWith('.png')){row.binary=true;continue;}
     const content=new TextDecoder('utf-8',{fatal:true,ignoreBOM:true}).decode(b);
