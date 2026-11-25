@@ -70,25 +70,25 @@ try{
     assert.equal(await page.locator('#effects .fxbox').count(),4);
     assert.equal(await page.locator('#layout option').count(),6);
     assert.equal(await page.locator('#transition option').count(),7);
-    row.tests.controls=true;
+    row.tests.controls=true;row.stage='render';
     const tested=await page.evaluate(()=>{
      const V=VideoDirector,src=document.createElement('canvas');src.width=160;src.height=90;
      src.getContext('2d').fillStyle='#ff0000';src.getContext('2d').fillRect(0,0,160,90);
      const out=document.createElement('canvas');out.width=320;out.height=180;
      const other=document.createElement('canvas');other.width=320;other.height=180;other.getContext('2d').fillStyle='#00ff00';other.getContext('2d').fillRect(0,0,320,180);
      let effects=0,layouts=0,transitions=0;
-     for(const layout of ['single','pip','split','quad','focus','vertical']){const scene={...V.defaults(),layout,banner:false};V.render(out,[src,src,src,src],scene,1000);if(out.getContext('2d').getImageData(10,10,1,1).data[0]!==255)throw Error('Layout render');layouts++;}
+     for(const layout of ['single','pip','split','quad','focus','vertical']){const scene={...V.defaults(),layout,fit:'cover',banner:false};V.render(out,[src,src,src,src],scene,1000);for(const [,x,y,w,h] of V.layout(layout,out.width,out.height,0)){const d=out.getContext('2d').getImageData(Math.floor(x+w/2),Math.floor(y+h/2),1,1).data;if(d[0]<250||d[1]>5||d[2]>5)throw Error('Layout render: '+layout);}layouts++;}
      for(const id of Object.keys(V.FX)){const scene=V.defaults();scene.fx[0]={id,amount:50};V.render(out,[src,null,null,null],scene,1000);effects++;}
-     for(const mode of ['cut','fade','wipe','vertical','dip','iris','slide']){V.transition(out,src,other,mode,1);const d=out.getContext('2d').getImageData(160,90,1,1).data;if(d[1]<240||d[0]>10)throw Error('Transition endpoint');transitions++;}
+     for(const mode of ['cut','fade','wipe','vertical','dip','iris','slide']){V.transition(out,src,other,mode,1);const d=out.getContext('2d').getImageData(160,90,1,1).data;if(d[1]<240||d[0]>10)throw Error('Transition endpoint: '+mode);transitions++;}
      return {effects,layouts,transitions};
     });
-    row.tests.render=tested;
+    row.tests.render=tested;row.stage='take_black';
     await page.locator('#transition').selectOption('cut');await page.locator('#layout').selectOption('quad');await page.locator('#take').click();
     await page.locator('#black').click();
     await page.waitForFunction(()=>{const d=document.querySelector('#program').getContext('2d').getImageData(640,360,1,1).data;return d[0]===0&&d[1]===0&&d[2]===0;});
-    row.tests.takeAndBlack=true;
+    row.tests.takeAndBlack=true;row.stage='complete';
     assert.equal(errors.length,0);row.status='passed';
-   }catch(e){row.status='failed';row.errorType=e.name;}
+   }catch(e){row.status='failed';row.errorType=e.name;row.diagnostic=String(e.message).replace(/[^a-zA-Z0-9 _:.\-]/g,' ').slice(0,180);}
    finally{row.pageErrors=errors.length;row.externalRequestsBlocked=external.length;await context.close();save();}
   }
  }finally{await browser.close();}
