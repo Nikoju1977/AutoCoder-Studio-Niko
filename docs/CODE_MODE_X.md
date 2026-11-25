@@ -111,3 +111,6 @@ Hash-pinned repair of deployed 17.5 video.js; optional 15 fps render and 5 fps t
 
 ### V25 — local maintenance supervisor
 Use `node scripts/maintenance.mjs /local/ledger.json seed`, then `node scripts/supervisor.mjs /local/ledger.json status|plan`, `html /local/supervisor.html`, or `claim PLAN_DIGEST`. The claim reserves at most three exact queue entries using a revision-bound digest under the existing exclusive ledger lock; no execution or repo writes. An explicit `resume` may release interrupted running records only when no operator is working. HTML is escaped, static, local, and created without overwriting. Historical release records link to verified post-merge CI and Pages runs, not live verification. No private repo publication, no paid calls, no network access from the supervisor. Review any local report before sharing.
+
+#### WanGP contextual reconciliation
+`node scripts/maintenance.mjs /local/ledger.json reconcile-wan` explicitly records the exact-version historical compiler proof and cancels the intentional Gradio fragment finding. A new coverage issue tracks GPU and numerical checks on the corrected draft commit. It does not touch running reservations, other source revisions or terminal operator decisions, and performs no network access or publication. Run evidence: 45522322331. No production change.
