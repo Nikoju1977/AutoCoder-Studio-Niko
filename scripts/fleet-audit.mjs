@@ -49,7 +49,8 @@ async function check(repo){
     row.sdkPassed++;row.audited+=project.files.length;
     for(const f of files){
      const alias=project.github.mapping.find(m=>m.path===f.path)?.name;
-     const findings=audit.findings.filter(x=>x.file===alias).map(({code,severity,line})=>({code,severity,line}));
+     const scope=/(^|\/)(tests?|ron-tests|__tests__|tools)(\/|$)/i.test(f.path)?'test_or_tool_candidate':/\.md$/i.test(f.path)?'documentation':'source_candidate';
+     const findings=audit.findings.filter(x=>x.file===alias).map(({code,severity,line})=>({code,severity,line,scope,confirmation:'heuristic_only'}));
      for(const x of findings)row.findings[x.code]=(row.findings[x.code]||0)+1;
      row.files.push({path:f.path,status:'audited',findings});
     }
@@ -65,7 +66,17 @@ async function check(repo){
   }
   row.status=row.failed||row.partial?'partial':row.findings.JSON_INVALID?'audit_findings_error':'audit_completed';
   return row;
- }catch(e){row.status=category(e);return row;}
+ }catch(e){
+  row.status=category(e);
+  if(row.status==='GitHub HTTP 409'){
+   try{
+    const base='https://api.github.com/repos/'+repo;
+    const [meta,branches]=await Promise.all([fetchImpl(base),fetchImpl(base+'/branches?per_page=1')]);
+    if(meta.ok&&branches.ok){const m=await meta.json(),b=await branches.json();if(m.private===false&&m.size===0&&Array.isArray(b)&&b.length===0)row.status='empty_repository';}
+   }catch{/* retain original error */}
+  }
+  return row;
+ }
 }
 for(const name of assigned){
  const row=await check(name);rows.push(row);
@@ -74,4 +85,4 @@ for(const name of assigned){
 }
 const summary={shard,shards,publicRepos:names.length,assigned:assigned.length,completed:rows.length,results:rows.reduce((m,r)=>(m[r.status]=(m[r.status]||0)+1,m),{}),filesLoaded:rows.reduce((n,r)=>n+r.loaded,0),filesAudited:rows.reduce((n,r)=>n+r.audited,0),filesFailed:rows.reduce((n,r)=>n+r.failed,0),batches:rows.reduce((n,r)=>n+r.batches,0),scope:'All listed eligible files in successive batches of 3; static checks only; no AI, QPU, source logs or writes.'};
 console.log('FLEET_SUMMARY '+JSON.stringify(summary));
-if(!names.length||rows.some(r=>!['audit_completed','audit_findings_error','no_eligible_files'].includes(r.status)))process.exitCode=1;
+if(!names.length||rows.some(r=>!['audit_completed','audit_findings_error','no_eligible_files','empty_repository'].includes(r.status)))process.exitCode=1;
