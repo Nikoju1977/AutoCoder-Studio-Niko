@@ -1,0 +1,32 @@
+name: Code Mode Pro real repository integration
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/real-integration.mjs'
+      - 'sandbox-runner.mjs'
+      - '.github/workflows/real-integration.yml'
+permissions:
+  contents: read
+jobs:
+  real:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Prepare official Node image for isolated tests
+        run: |
+          docker pull node:22-bookworm-slim
+          image="$(docker image inspect --format '{{.Id}}' node:22-bookworm-slim)"
+          echo "CMX_TEST_IMAGE=$image" >> "$GITHUB_ENV"
+      - name: Actual repository static audit and Docker regression comparison
+        run: node scripts/real-integration.mjs
+      - name: Preserve execution evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: real-integration-report
+          path: real-integration-report.json
+          if-no-files-found: warn

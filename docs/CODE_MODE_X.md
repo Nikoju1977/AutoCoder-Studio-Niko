@@ -93,3 +93,6 @@ Linux only, trusted local Docker daemon required; user supplies an already-insta
 
 ### Fleet audit scheduling
 Full fleet runs now require a deliberate workflow_dispatch (once available on the default branch) or adding the `fleet-audit` label to a PR targeting main. Normal commits no longer launch another full fleet scan. Existing runs are not canceled by this change. Recent HTTP 403 errors indicate a quota or access limitation; the exact cause is not established by the current logs. Ordinary CI remains automatic.
+
+### Real repository integration
+Dedicated PR workflow fetches two immutable commits of the public Lovestronautes repository via Git (not the REST API), verifies three actual blobs, checks syntax, invokes the local workflow and SDK, and runs a reviewed regression fixture in two actual Docker containers. CI explicitly prepares the official Node image, records its local immutable ID, then uses the V23 sandbox without network. No external AI calls, no target repository edits, no production promotion. Report includes exact commits, hashes and execution results. No claim of whole-application validation.
