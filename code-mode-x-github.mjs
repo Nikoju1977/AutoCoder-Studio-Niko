@@ -33,7 +33,9 @@ export async function listPublicRepo(value,options={}){
  const tree=await get(base+'/git/trees/'+commit.commit.tree.sha+'?recursive=1',options);
  if(!Array.isArray(tree.tree))throw Error('Arborescence invalide');
  const eligible=tree.tree.filter(f=>f.type==='blob'&&['100644','100755'].includes(f.mode)&&SHA.test(f.sha)&&Number.isInteger(f.size)&&f.size>=0&&f.size<=12000&&supported(f.path));
- return {repo,commit:commit.sha,branch,total:tree.tree.length,partial:!!tree.truncated||eligible.length>500,files:eligible.slice(0,500).map(({path,sha,size})=>({path,sha,size}))};
+ const limit=options.inventoryLimit??500;
+ if(!Number.isInteger(limit)||limit<1||limit>10000)throw Error('Limite inventaire invalide');
+ return {repo,commit:commit.sha,branch,total:tree.tree.length,eligibleTotal:eligible.length,partial:!!tree.truncated||eligible.length>limit,files:eligible.slice(0,limit).map(({path,sha,size})=>({path,sha,size}))};
 }
 export async function loadPublicSelection(snapshot,paths,options={}){
  if(!Array.isArray(paths)||!paths.length||paths.length>12||new Set(paths).size!==paths.length)throw Error('Choisir 1 à 12 fichiers');
