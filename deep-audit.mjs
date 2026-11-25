@@ -2,7 +2,7 @@
 import {spawnSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {posix} from 'node:path';
-export const AUDIT_VERSION='deep-audit-v21';
+export const AUDIT_VERSION='deep-audit-v21.1';
 const ext=p=>p.split('.').pop().toLowerCase();
 export function checkBlobIntegrity(bytes,sha){return createHash('sha1').update('blob '+bytes.length+'\0').update(bytes).digest('hex')===sha;}
 function parser(cmd,args,content,spawn){
@@ -13,11 +13,18 @@ function parser(cmd,args,content,spawn){
 export function inspectSyntax(path,content,{spawn=spawnSync}={}){
  const e=ext(path);
  if(e==='json'){try{JSON.parse(content);return {language:'json',status:'valid'};}catch{return {language:'json',status:'invalid'};}}
- if(e==='py')return {language:'python',status:parser('python3',['-I','-S','-c','import ast,sys; ast.parse(sys.stdin.read())'],content,spawn)};
+ if(e==='py')return {language:'python',status:parser('python3',['-I','-S','-c','import ast,sys; ast.parse(sys.stdin.buffer.read())'],content,spawn)};
  if(['js','mjs','cjs'].includes(e)){
   const modes=e==='mjs'?['module']:e==='cjs'?['commonjs']:['commonjs','module'];
   const results=modes.map(mode=>parser(process.execPath,['--check','--input-type='+mode],content,spawn));
-  return {language:'javascript',status:results.includes('valid')?'valid':results.includes('unavailable')?'unavailable':'invalid'};
+  if(results.includes('valid'))return {language:'javascript',status:'valid'};
+  if(results.includes('unavailable'))return {language:'javascript',status:'unavailable'};
+  // Some host frameworks consume a function expression, not a standalone script.
+  if(e==='js'&&/^\s*(?:async\s+)?function\s*\(/.test(content)){
+   const expression=parser(process.execPath,['--check','--input-type=commonjs'],'('+content+'\n)',spawn);
+   if(expression==='valid')return {language:'javascript',status:'valid_expression',contextVerified:false};
+  }
+  return {language:'javascript',status:'invalid'};
  }
  return {language:e,status:'not_supported'};
 }

@@ -1,0 +1,26 @@
+name: Code Mode Pro Wan2GP syntax recheck
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/wan-syntax-recheck.mjs'
+      - '.github/workflows/wan-syntax-recheck.yml'
+permissions:
+  contents: read
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Recheck exact Wan2GP commit without executing source
+        run: node scripts/wan-syntax-recheck.mjs
+      - name: Preserve evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: wan-syntax-report
+          path: wan-syntax-report.json
+          if-no-files-found: warn

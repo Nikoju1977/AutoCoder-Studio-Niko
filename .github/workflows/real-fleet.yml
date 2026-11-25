@@ -2,15 +2,13 @@ name: Code Mode Pro real public fleet
 on:
   pull_request:
     branches: [main]
-    paths:
-      - 'scripts/real-fleet.mjs'
-      - 'tests/public-fleet.json'
-      - '.github/workflows/real-fleet.yml'
+    types: [labeled]
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   fleet:
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'real-fleet'
     runs-on: ubuntu-latest
     timeout-minutes: 35
     strategy:
