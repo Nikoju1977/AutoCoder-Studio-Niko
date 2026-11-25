@@ -1,0 +1,112 @@
+[
+  {
+    "repo": "Nikoju1977/the-lovestronautes-machine",
+    "commit": "3903bb23403db04bb4f27e9cf840b837dc4f6ff2",
+    "path": "loop-studio.js",
+    "blob": "ff9f07a01a2ffe456a8cb561981d2dcfce03580f",
+    "code": "FUNCTIONAL_REGRESSION",
+    "confirmation": "fixture_improved",
+    "note": "Loop ID restoration: before failed, after passed",
+    "proof": {
+      "kind": "fixture_comparison",
+      "result": "confirmed",
+      "url": "https://github.com/Nikoju1977/AutoCoder-Studio-Niko/actions/runs/45517345460",
+      "note": "Loop ID restoration: before failed, after passed",
+      "correctedCommit": "d5436d4af6c0a53d28bbfe9b66d05546295668d2"
+    }
+  },
+  {
+    "repo": "Nikoju1977/job-search",
+    "commit": "722c41fcb411fca5321feecf7d2d012b5f124626",
+    "path": "public/pwa.js",
+    "blob": "47fd67aabf38d3f27da16914b4fd99a4ffd55a5c",
+    "code": "FUNCTIONAL_REGRESSION",
+    "confirmation": "fixture_improved",
+    "note": "Dialog fallback: before failed, after passed",
+    "proof": {
+      "kind": "fixture_comparison",
+      "result": "confirmed",
+      "url": "https://github.com/Nikoju1977/AutoCoder-Studio-Niko/actions/runs/45517856039",
+      "note": "Dialog fallback: before failed, after passed",
+      "correctedCommit": "7839af7161eff01339eeff7d2d49f57f11782865"
+    }
+  },
+  {
+    "repo": "Nikoju1977/medicalvisionproai",
+    "commit": "c27defd2f121234bfd06b389a8fd068e6fc9d6cf",
+    "path": "web-knowledge.js",
+    "blob": "61d9955b07b76f62eec1f3a05f7291282df8b06e",
+    "code": "FUNCTIONAL_REGRESSION",
+    "confirmation": "fixture_improved",
+    "note": "Unavailable sources: before failed, after passed",
+    "proof": {
+      "kind": "fixture_comparison",
+      "result": "confirmed",
+      "url": "https://github.com/Nikoju1977/AutoCoder-Studio-Niko/actions/runs/45517856039",
+      "note": "Unavailable sources: before failed, after passed",
+      "correctedCommit": "4fecc4ae59cff6d7e71f51f7be15a53896f39b67"
+    }
+  },
+  {
+    "repo": "Nikoju1977/Nikoju1977",
+    "commit": "e9b456a7ec5f84cb5b519fb08cd5c47c476657bb",
+    "path": "hub/workspace.js",
+    "blob": "018f598431fa43a9c7f71f07c934f66aee5d5931",
+    "code": "FUNCTIONAL_REGRESSION",
+    "confirmation": "fixture_improved",
+    "note": "Concurrent import: before failed, after passed",
+    "proof": {
+      "kind": "fixture_comparison",
+      "result": "confirmed",
+      "url": "https://github.com/Nikoju1977/AutoCoder-Studio-Niko/actions/runs/45517856039",
+      "note": "Concurrent import: before failed, after passed",
+      "correctedCommit": "a96eb662c6ea1a6b1a78ef16e675a0eea6082a10"
+    }
+  },
+  {
+    "repo": "Nikoju1977/Wan2GP",
+    "commit": "a02526122d204caa1efcf7ac76d7075fc7224c0b",
+    "path": "models/longcat/modules/block_sparse_attention/flash_attn_bsa_varlen_mask.py",
+    "blob": "64171c7e4c96416f14e184122c955605ae070a55",
+    "code": "SYNTAX_INVALID",
+    "confirmation": "parser_rejected",
+    "note": "IndentationError line 111; inspect other indentation defects",
+    "proof": {
+      "kind": "parser_recheck",
+      "result": "confirmed",
+      "url": "https://github.com/Nikoju1977/AutoCoder-Studio-Niko/actions/runs/45518107709",
+      "note": "IndentationError line 111; inspect other indentation defects"
+    }
+  },
+  {
+    "repo": "Nikoju1977/Wan2GP",
+    "commit": "a02526122d204caa1efcf7ac76d7075fc7224c0b",
+    "path": "shared/gradio/ui_scripts.js",
+    "blob": "8035d5f06ecfe6f949f14fedd132f363a7a6f996",
+    "code": "SYNTAX_INVALID",
+    "confirmation": "parser_rejected",
+    "note": "Parser rejected even as expression; verify Gradio host contract",
+    "proof": {
+      "kind": "parser_recheck",
+      "result": "confirmed",
+      "url": "https://github.com/Nikoju1977/AutoCoder-Studio-Niko/actions/runs/45518107709",
+      "note": "Parser rejected even as expression; verify Gradio host contract"
+    }
+  },
+  {
+    "repo": "Nikoju1977/Wan2GP",
+    "commit": "a02526122d204caa1efcf7ac76d7075fc7224c0b",
+    "path": "shared/gradio/wangp_image_editor/templates/component/index.js",
+    "code": "COVERAGE_LIMIT",
+    "confirmation": "coverage",
+    "note": "2412000 bytes; exceeds audit cap"
+  },
+  {
+    "repo": "Nikoju1977/Wan2GP",
+    "commit": "a02526122d204caa1efcf7ac76d7075fc7224c0b",
+    "path": "shared/gradio/wangp_image_editor/templates/component/style.css",
+    "code": "COVERAGE_LIMIT",
+    "confirmation": "coverage",
+    "note": "1500311 bytes; exceeds audit cap"
+  }
+]
