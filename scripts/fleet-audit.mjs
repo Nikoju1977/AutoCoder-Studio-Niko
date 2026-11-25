@@ -1,5 +1,6 @@
 // Read-only fleet interoperability test: real public GitHub data, existing V20 modules.
-import {listOwnerPage,listPublicRepo,loadPublicSelection,readPublicAuditBlob} from '../code-mode-x-github.mjs';
+import {listOwnerPage,listPublicRepo,readPublicAuditBlob} from '../code-mode-x-github.mjs';
+import {audit,validateFiles} from '../code-mode-x.mjs';
 import {createNativeBus} from '../code-mode-x-tools.mjs';
 import {executeWorkflow,defaultWorkflow} from '../classical-engine.mjs';
 import {createGateway,createClient} from '../native-protocol.mjs';
@@ -46,6 +47,7 @@ async function check(repo){
   const reusable=new Map(saved?.commit===row.commit&&Array.isArray(saved.files)?saved.files.filter(f=>f.status==='audited').map(f=>[f.path,f]):[]);
   for(let i=0;i<selection.length;i+=3){
    const batch=selection.slice(i,i+3);row.batches++;
+   const smallFiles=[];
    for(const f of batch){
     let entry=reusable.get(f.path);
     if(!entry||entry.sha!==f.sha){
@@ -53,6 +55,10 @@ async function check(repo){
       const blob=await readPublicAuditBlob(snapshot,f.path,opts);
       if(!checkBlobIntegrity(blob.bytes,f.sha))throw Error('Blob digest mismatch');
       entry={path:f.path,sha:f.sha,status:'audited',...inspectFile(blob,{allPaths:known,treeTruncated:snapshot.treeTruncated})};
+      if(f.size<=12000&&/\.(py|html|css|js|md|json|mjs|cjs)$/i.test(f.path)){
+       const ext=f.path.split('.').pop().toLowerCase();
+       smallFiles.push({name:'file-'+String(smallFiles.length+1).padStart(2,'0')+'.'+(['mjs','cjs'].includes(ext)?'js':ext),content:blob.content});
+      }
      }catch(e){entry={path:f.path,sha:f.sha,status:category(e)};}
     }
     row.files.push(entry);
@@ -62,11 +68,15 @@ async function check(repo){
     }else row.failed++;
    }
    // Existing local SDK path remains separately verified for small supported files.
-   const small=batch.filter(f=>f.size<=12000&&/\.(py|html|css|js|md|json|mjs|cjs)$/i.test(f.path));
-   if(small.length){try{
-    const project=await loadPublicSelection(snapshot,small.map(f=>f.path),opts);
+   if(smallFiles.length){try{
+    const files=validateFiles(smallFiles);
+    if(audit(files).findings.some(f=>f.code==='POSSIBLE_SECRET'))throw Error('Secret potentiel');
+    const project={name:repo,files};
+    const result=await executeWorkflow(defaultWorkflow,{bus:createNativeBus({project,maxCalls:3})});
+    if(result.status!=='completed')throw Error('Workflow failed');
     const sdk=createClient(r=>createGateway({project,maxCalls:1}).dispatch(r));
-    if((await sdk.call('project.inventory')).files.length===small.length)row.sdkPassed++;
+    if((await sdk.call('project.inventory')).files.length!==files.length)throw Error('SDK inventory mismatch');
+    row.sdkPassed++;
    }catch{row.sdkBlocked=(row.sdkBlocked||0)+1;}}
    if(row.batches%10===0)await checkpoint(row);
    console.log('FLEET_BATCH '+JSON.stringify({repo,batch:row.batches,done:Math.min(i+3,selection.length),listed:selection.length,audited:row.audited,failed:row.failed}));
