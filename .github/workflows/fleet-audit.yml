@@ -2,11 +2,13 @@ name: Code Mode Pro fleet interoperability
 on:
   pull_request:
     branches: [main]
+    types: [labeled]
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   fleet:
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'fleet-audit'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     strategy:
