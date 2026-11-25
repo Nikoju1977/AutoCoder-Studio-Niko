@@ -84,7 +84,7 @@ export async function readPublicAuditBlob(snapshot,path,options={}){
  if(blob.sha!==f.sha||blob.encoding!=='base64'||typeof blob.content!=='string'||blob.content.length>1500000)throw Error('Blob GitHub invalide');
  const bytes=Uint8Array.from(atob(blob.content.replace(/\s/g,'')),c=>c.charCodeAt(0));
  if(bytes.length!==f.size)throw Error('Taille du fichier incohérente');
- const content=new TextDecoder('utf-8',{fatal:true}).decode(bytes);
+ const content=new TextDecoder('utf-8',{fatal:true,ignoreBOM:true}).decode(bytes);
  if(content.includes('\0'))throw Error('Fichier non textuel');
  return {path,sha:f.sha,bytes,content};
 }
