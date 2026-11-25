@@ -1,7 +1,7 @@
 // Code Mode Pro V24: audit immutable Nexus deployment, never initiate a broadcast.
 import {createHash} from 'node:crypto';
 import {writeFileSync} from 'node:fs';
-import {patchRecording} from './nexus-recording-patch.mjs';
+import {patchEndurance} from './nexus-recording-patch.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 import {inspectFile} from '../deep-audit.mjs';
@@ -52,11 +52,12 @@ try{
  }
  const originalVideo=assets.get('video.js');
  if(originalVideo){
-  const candidate=patchRecording(originalVideo.toString('utf8'));
+  const candidate=patchEndurance(originalVideo.toString('utf8'));
   const audit=inspectFile({path:'video.js',content:candidate});
   assert.equal(audit.syntax.status,'valid');
   report.repair={originalSha1:createHash('sha1').update(originalVideo).digest('hex'),candidateSha1:createHash('sha1').update(candidate).digest('hex'),syntax:audit.syntax.status,productionChanged:false};
   assets.set('video.js',Buffer.from(candidate));
+  writeFileSync('nexus-video-candidate.js',candidate);
  }
  // Exact bytes served through intercepted local-origin requests. No real relay, media or remote control.
  const required=['index.html','video.html','app.js','hybrid.js','overlay.js','video-core.js','video.js','style.css','video.css'];
@@ -129,7 +130,34 @@ try{
     report.recordingRegression.push({version,capExport:first.downloads===1,discardPreserved:true,encoder:'mock',passed:true});
    }finally{await context.close();save();}
   }
+
+  // Actual Chromium MediaRecorder output, using synthetic canvas frames (no audio).
+  const real=await browser.newContext({serviceWorkers:'block',acceptDownloads:true});
+  await real.route('**/*',route=>{const u=new URL(route.request().url());const data=u.origin==='https://nexus-audit.invalid'?assets.get(u.pathname.slice(1)):null;return data?route.fulfill({status:200,contentType:mime(u.pathname),body:data}):route.abort();});
+  try{
+   const page=await real.newPage();await page.goto('https://nexus-audit.invalid/video.html');
+   await page.locator('#nexusEconomy').selectOption('eco');
+   const downloadPromise=page.waitForEvent('download',{timeout:15000});
+   await page.locator('#rec').click();await page.waitForTimeout(1800);
+   await page.locator('#stop').click();const downloaded=await downloadPromise;
+   const chunks=[];for await(const chunk of await downloaded.createReadStream())chunks.push(chunk);const data=Buffer.concat(chunks);
+   assert.ok(data.length>1000);
+   const decoded=await page.evaluate(async encoded=>{const b=Uint8Array.from(atob(encoded),c=>c.charCodeAt(0));const v=document.createElement('video');const u=URL.createObjectURL(new Blob([b],{type:'video/webm'}));try{v.src=u;await new Promise((resolve,reject)=>{v.onloadeddata=resolve;v.onerror=()=>reject(Error('decode'));setTimeout(()=>reject(Error('decode timeout')),8000)});return {width:v.videoWidth,height:v.videoHeight};}finally{URL.revokeObjectURL(u)}},data.toString('base64'));
+   assert.equal(decoded.width,1280);assert.equal(decoded.height,720);report.realRecording={status:'passed',bytes:data.length,...decoded,mode:'eco',audio:false};
+  }finally{await real.close();save();}
+  // Test real encoder with a simulated writable destination; no OS picker required.
+  const diskContext=await browser.newContext({serviceWorkers:'block'});
+  await diskContext.addInitScript(()=>{window.__diskTest={chunks:[],closed:false,aborted:false};window.showSaveFilePicker=async()=>({createWritable:async()=>({write:async b=>{window.__diskTest.chunks.push(b)},close:async()=>{window.__diskTest.closed=true},abort:async()=>{window.__diskTest.aborted=true}})});});
+  await diskContext.route('**/*',route=>{const u=new URL(route.request().url());const data=u.origin==='https://nexus-audit.invalid'?assets.get(u.pathname.slice(1)):null;return data?route.fulfill({status:200,contentType:mime(u.pathname),body:data}):route.abort();});
+  try{
+   const page=await diskContext.newPage();await page.goto('https://nexus-audit.invalid/video.html');
+   await page.locator('#nexusDisk').click();await page.waitForFunction(()=>!document.querySelector('#stop').disabled);
+   await page.waitForTimeout(1600);await page.locator('#stop').click();
+   await page.waitForFunction(()=>window.__diskTest.closed);
+   const result=await page.evaluate(()=>({chunks:window.__diskTest.chunks.length,bytes:window.__diskTest.chunks.reduce((n,b)=>n+b.size,0),closed:window.__diskTest.closed,aborted:window.__diskTest.aborted}));
+   assert.ok(result.chunks>0&&result.bytes>1000&&result.closed&&!result.aborted);report.diskRecording={...result,status:'passed',writer:'simulated',encoder:'real'};
+  }finally{await diskContext.close();save();}
  }finally{await browser.close();}
- report.status=report.recordingRegression?.length===2&&report.recordingRegression.every(r=>r.passed)&&report.browser.every(r=>r.status==='passed')&&report.lots.every(r=>r.sdk!=='blocked')&&report.files.every(r=>r.status==='verified'||(['README.md','vercel.json'].includes(r.path)&&r.status==='unavailable'))?'passed':'partial';
+ report.status=report.realRecording?.status==='passed'&&report.diskRecording?.status==='passed'&&report.recordingRegression?.length===2&&report.recordingRegression.every(r=>r.passed)&&report.browser.every(r=>r.status==='passed')&&report.lots.every(r=>r.sdk!=='blocked')&&report.files.every(r=>r.status==='verified'||(['README.md','vercel.json'].includes(r.path)&&r.status==='unavailable'))?'passed':'partial';
 }catch(e){report.status='blocked';report.errorType=e.name;}
 finally{save();console.log('NEXUS_AUDIT '+JSON.stringify(report));if(report.status!=='passed')process.exitCode=1;}
