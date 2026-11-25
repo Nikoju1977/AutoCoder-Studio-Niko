@@ -1,0 +1,39 @@
+name: Code Mode Pro real public fleet
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/real-fleet.mjs'
+      - 'tests/public-fleet.json'
+      - '.github/workflows/real-fleet.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  fleet:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Prepare official Node image
+        run: |
+          docker pull node:22-bookworm-slim
+          echo "CMX_TEST_IMAGE=$(docker image inspect --format '{{.Id}}' node:22-bookworm-slim)" >> "$GITHUB_ENV"
+      - name: Public repository integration by three-file batches
+        env:
+          FLEET_SHARD: ${{ matrix.shard }}
+        run: node scripts/real-fleet.mjs
+      - name: Preserve evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: real-fleet-${{ matrix.shard }}
+          path: real-fleet-${{ matrix.shard }}.json
+          if-no-files-found: warn

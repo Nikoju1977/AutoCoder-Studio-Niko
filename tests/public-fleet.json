@@ -1,0 +1,270 @@
+{
+  "date": "2026-11-25",
+  "repositories": [
+    {
+      "name": "aegis-earth-mobile",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "agent-biometrique",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "applewatchcadrans",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "AutoCoder-Studio-Niko",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "AutoEntrepreneur-1M",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "aylina-is-cooking",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "Bouh-delivery",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "Boutique-morgane",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "cockpit-mecaria",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "compagnon-diabete",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "Cosmo-citrouille",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "Dbmetre-pro",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "dermato-ai",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "EBM-BRETONNE.",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "fibrobot",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "fibrocare",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "galerie-studio-niko",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "handimonde",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "ia-studio-cine",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "jarvisdiabete",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "job-search",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "l-ultime-confrontation",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "le-jardin-de-niko",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "les-annales-akashiques",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "medicalvisionproai",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "Medivision-ai-pro",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "Metrology-OS",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "miaotris",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "N8V",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "Neural-Art-mars-2026",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "niko-commande-live-tik-tok",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "niko-music-lab",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "Niko-Ultravision",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "Nikoassist",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "nikogroove",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "Nikoju1977",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "oeil-hermes",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "OPENVITA-DT1",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "oracle-du-jardinier",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "presentation-medtronic",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "purescanai",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "radar-de-niko",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "Rave-Generator-2",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "rf-metrolgy-pro",
+      "branch": "main",
+      "empty": true
+    },
+    {
+      "name": "RF-Metrology-Pro",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "Ron-",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "Sage-companion",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "SCAN-BIOMEDICAL",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "tarot-de-niko",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "the-lovestronautes-machine",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "Vision-IA",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "Wan2GP",
+      "branch": "main",
+      "empty": false
+    },
+    {
+      "name": "White-hat",
+      "branch": "main",
+      "empty": false
+    }
+  ]
+}
