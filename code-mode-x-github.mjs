@@ -32,10 +32,15 @@ export async function listPublicRepo(value,options={}){
  if(!SHA.test(commit.sha)||!SHA.test(commit.commit?.tree?.sha))throw Error('Version GitHub invalide');
  const tree=await get(base+'/git/trees/'+commit.commit.tree.sha+'?recursive=1',options);
  if(!Array.isArray(tree.tree))throw Error('Arborescence invalide');
- const eligible=tree.tree.filter(f=>f.type==='blob'&&['100644','100755'].includes(f.mode)&&SHA.test(f.sha)&&Number.isInteger(f.size)&&f.size>=0&&f.size<=12000&&supported(f.path));
+ const maxFileBytes=options.maxFileBytes??12000;
+ if(!Number.isInteger(maxFileBytes)||maxFileBytes<12000||maxFileBytes>1048576)throw Error('Limite fichier invalide');
+ const allowed=p=>supported(p)||(options.deepAudit===true&&safePath(p)&&['ts','tsx','jsx','yaml','yml','toml','sql','sh'].includes(extension(p)));
+ const candidates=tree.tree.filter(f=>f.type==='blob'&&['100644','100755'].includes(f.mode)&&SHA.test(f.sha)&&Number.isInteger(f.size)&&f.size>=0&&allowed(f.path));
+ const oversized=candidates.filter(f=>f.size>maxFileBytes).length;
+ const eligible=tree.tree.filter(f=>f.type==='blob'&&['100644','100755'].includes(f.mode)&&SHA.test(f.sha)&&Number.isInteger(f.size)&&f.size>=0&&f.size<=maxFileBytes&&allowed(f.path));
  const limit=options.inventoryLimit??500;
  if(!Number.isInteger(limit)||limit<1||limit>10000)throw Error('Limite inventaire invalide');
- return {repo,commit:commit.sha,branch,total:tree.tree.length,eligibleTotal:eligible.length,partial:!!tree.truncated||eligible.length>limit,files:eligible.slice(0,limit).map(({path,sha,size})=>({path,sha,size}))};
+ return {repo,commit:commit.sha,branch,total:tree.tree.length,eligibleTotal:eligible.length,oversized,treeTruncated:!!tree.truncated,...(options.deepAudit===true?{allPaths:tree.tree.filter(f=>f.type==='blob'&&typeof f.path==='string').map(f=>f.path)}:{}),partial:!!tree.truncated||eligible.length>limit,files:eligible.slice(0,limit).map(({path,sha,size})=>({path,sha,size}))};
 }
 export async function loadPublicSelection(snapshot,paths,options={}){
  if(!Array.isArray(paths)||!paths.length||paths.length>12||new Set(paths).size!==paths.length)throw Error('Choisir 1 à 12 fichiers');
@@ -70,4 +75,16 @@ export async function listOwnerPage(owner,page=1,options={}){
  const rows=await get('/users/'+owner+'/repos?type=owner&sort=pushed&direction=desc&per_page=100&page='+page,options);
  if(!Array.isArray(rows))throw Error('Réponse GitHub invalide');
  return {rows,hasNext:rows.length===100&&page<20,capped:rows.length===100&&page===20};
+}
+
+export async function readPublicAuditBlob(snapshot,path,options={}){
+ const f=snapshot.files.find(x=>x.path===path);
+ if(!f||!safePath(path)||!SHA.test(f.sha)||!Number.isInteger(f.size)||f.size<0||f.size>1048576)throw Error('Fichier audit invalide');
+ const blob=await get('/repos/'+parseRepo(snapshot.repo)+'/git/blobs/'+f.sha,options);
+ if(blob.sha!==f.sha||blob.encoding!=='base64'||typeof blob.content!=='string'||blob.content.length>1500000)throw Error('Blob GitHub invalide');
+ const bytes=Uint8Array.from(atob(blob.content.replace(/\s/g,'')),c=>c.charCodeAt(0));
+ if(bytes.length!==f.size)throw Error('Taille du fichier incohérente');
+ const content=new TextDecoder('utf-8',{fatal:true}).decode(bytes);
+ if(content.includes('\0'))throw Error('Fichier non textuel');
+ return {path,sha:f.sha,bytes,content};
 }
