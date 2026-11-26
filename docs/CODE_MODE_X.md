@@ -114,3 +114,20 @@ Use `node scripts/maintenance.mjs /local/ledger.json seed`, then `node scripts/s
 
 #### WanGP contextual reconciliation
 `node scripts/maintenance.mjs /local/ledger.json reconcile-wan` explicitly records the exact-version historical compiler proof and cancels the intentional Gradio fragment finding. A new coverage issue tracks GPU and numerical checks on the corrected draft commit. It does not touch running reservations, other source revisions or terminal operator decisions, and performs no network access or publication. Run evidence: 45522322331. No production change.
+
+## V26 — Agents de maintenance déterministes
+
+Importer d’abord un rapport de flotte avec `scripts/maintenance.mjs`, puis lancer
+`node scripts/maintenance-agents.mjs LEDGER.json PRIVATE_OUTPUT_DIR` (Node 20+).
+Le répertoire de sortie doit exister, être privé et rester hors du dépôt.
+Le superviseur sélectionne jusqu’à trois erreurs JSON confirmées en attente, toutes applications
+publiques du registre confondues. L’agent GitHub vérifie le commit de la branche par défaut
+et l’empreinte du fichier. Le moteur de réparation propose les corrections JSON prises en
+charge par V22 et vérifie la syntaxe avant et après. Le rapport signale les candidats à revoir,
+les sources ayant changé et les échecs d’accès. Les propositions existantes ne sont pas écrasées.
+
+Lancer la commande sur une machine de travail ou avec son ordonnanceur local après import du
+rapport. `CMX_GITHUB_READ_TOKEN` est facultatif. Les propositions utilisent le format de
+`scripts/publish.mjs` pour inspection et publication en PR brouillon après approbation.
+Les autres types de régression nécessitent une intervention. Aucune exécution du code cible,
+aucun appel IA, aucune fusion et aucun déploiement dans ce mode.
