@@ -143,3 +143,19 @@ La PR brouillon est créée uniquement si le scénario échoue avant et réussit
 si GitHub confirme que le commit source et les blobs sont toujours d’actualité.
 La PR contient les empreintes du scénario et de l’image utilisée. Le scénario et le
 patch sont fournis en entrée. Cette commande ne modifie pas la branche cible.
+
+## V28 — Génération d’un correctif de régression
+
+Préparer un fichier local `mission.json` avec les clés `mission`, `harness`, `image` et
+`language`. `mission` contient `repo`, `branch`, `commit`, `provider`, `prompt` et
+`files` (1 à 3 fichiers publics JavaScript ou Python, chacun avec `path`, `sha` Git
+et `content`). Décrire un défaut fonctionnel et le résultat attendu dans `prompt`.
+Le scénario Docker relu utilise les fichiers modifiés du candidat et reste local.
+
+`node scripts/regression-candidate.mjs mission.json spec.json` prépare l’empreinte
+du transfert de source. Relancer avec `--approve EMPREINTE` et
+`AUTOCODER_ACCESS_TOKEN` pour solliciter l’architecte, le développeur et le critique.
+Le transport utilise le fournisseur configuré, jusqu’à trois appels potentiellement payants.
+Le candidat reste limité aux fichiers sélectionnés et subit les vérifications statiques.
+La commande crée un `spec.json` local compatible avec `regression-publish.mjs`.
+L’exécution du test et la création de la PR brouillon utilisent l’approbation V27 séparée.
