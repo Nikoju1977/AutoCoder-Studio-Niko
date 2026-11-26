@@ -4,10 +4,14 @@ import {mkdtempSync,rmSync,writeFileSync,readFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';import {join} from 'node:path';
 import {checkBlobIntegrity} from '../deep-audit.mjs';
 import {prepareSandbox,runSandbox} from '../sandbox-runner.mjs';
-const fixtures=JSON.parse(readFileSync(new URL('../tests/real-regression-fixtures.json',import.meta.url),'utf8'));
+const catalog=JSON.parse(readFileSync(new URL('../tests/real-regression-fixtures.json',import.meta.url),'utf8'));
+const [repository, ...extra] = process.argv.slice(2);
+const fixtures = repository ? catalog.filter(f => f.repo === repository) : catalog;
+if (extra.length || !fixtures.length) throw Error('Unknown regression fixture');
 const image=process.env.CMX_TEST_IMAGE;
 if(!/^sha256:[a-f0-9]{64}$/.test(image??''))throw Error('Missing image');
 const rows=[];
+const evidence=['# Code Mode Pro · Preuves de régression'];
 for(const f of fixtures){
  const root=mkdtempSync(join(tmpdir(),'cmx-regression-'));
  const row={repo:'Nikoju1977/'+f.repo,scenario:f.test,originalCommit:f.before,correctedCommit:f.after,path:f.path,status:'not_tested',providerCalls:0};
@@ -24,4 +28,12 @@ for(const f of fixtures){
  finally{rmSync(root,{recursive:true,force:true});}
  rows.push(row);console.log('REAL_REGRESSION '+JSON.stringify(row));writeFileSync('real-regression-report.json',JSON.stringify({rows},null,2));
 }
+for (const row of rows) {
+ const link = commit => 'https://github.com/' + row.repo + '/commit/' + commit;
+ evidence.push('', '## ' + row.scenario, '',
+  '- Avant : [' + row.originalCommit + '](' + link(row.originalCommit) + ') · ' + (row.execution?.before.status ?? 'non exécuté'),
+  '- Après : [' + row.correctedCommit + '](' + link(row.correctedCommit) + ') · ' + (row.execution?.after.status ?? 'non exécuté'),
+  '- Résultat du scénario : ' + row.status);
+}
+writeFileSync('real-regression-evidence.md', evidence.join('\n') + '\n');
 if(rows.some(r=>r.status!=='passed'))process.exitCode=1;

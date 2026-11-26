@@ -1,7 +1,7 @@
 name: Code Mode Pro real functional regressions
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feature/code-mode-x-v1]
     paths:
       - 'scripts/real-regressions.mjs'
       - 'tests/real-regression-fixtures.json'
@@ -27,5 +27,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: real-regression-report
-          path: real-regression-report.json
+          path: |
+            real-regression-report.json
+            real-regression-evidence.md
           if-no-files-found: warn
