@@ -16,6 +16,8 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
+      - name: Check regression publication gate
+        run: node --test tests/regression-publication.test.mjs
       - name: Prepare Node image
         run: |
           docker pull node:22-bookworm-slim
