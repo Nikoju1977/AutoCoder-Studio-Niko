@@ -1,7 +1,7 @@
 // Same-origin browser client; no GitHub credentials in browser storage or requests.
 const DESTINATION='Nikoju1977/Studio-Niko-Autopilot-Inbox';
 async function call(body,fetchImpl){
- const res=await fetchImpl('/api/review-bridge',{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',redirect:'error',signal:AbortSignal.timeout(60000),...(body?{headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{})});
+ const res=await fetchImpl('/api/review-bridge',{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',redirect:'error',signal:AbortSignal.timeout(body?60000:8000),...(body?{headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{})});
  let data;try{data=await res.json();}catch{throw Error('Réponse de la passerelle invalide.');}
  if(!res.ok)throw Error(typeof data?.error==='string'?data.error.slice(0,200):'Passerelle HTTP '+res.status);
  return data;
