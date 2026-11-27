@@ -1,0 +1,12 @@
+import {readFile,mkdtemp,stat} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {auditVisual} from '../ui-visual.mjs';
+const input=process.argv[2];
+if(!input)throw Error('Usage: npm run ui:visual -- niko-ui-visual.json');
+if((await stat(input)).size>500000)throw Error('Dossier trop volumineux');
+const bundle=JSON.parse(await readFile(input,'utf8'));
+const out=await mkdtemp(join(tmpdir(),'niko-ui-visual-'));
+const report=await auditVisual(bundle,out);
+console.log(JSON.stringify({out,...report},null,2));
+if(report.status==='regression_detected')process.exitCode=1;
