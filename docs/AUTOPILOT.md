@@ -10,3 +10,6 @@
 ## V2 — Revue privée
 
 La [passerelle GitHub privée](REVIEW-BRIDGE.md) permet la transmission d'une proposition approuvée sans export manuel. L'export JSON reste disponible. Aucun push ni fusion automatique.
+
+## Mission ciblée NIKO Native V5.1
+`npm run innovator:native` affiche la mission sans réseau ni IA. `npm run innovator:native -- --run` effectue une seule requête Agnes via le serveur AutoCoder existant, avec AUTOCODER_ACCESS_TOKEN déjà configuré dans l'environnement local par le propriétaire. Aucun secret à coller dans le chat. Le commit public et les trois fichiers sont fixés, la réponse utilise le parseur Innovateur existant et reste à examiner. Aucun push, aucune fusion, aucun test applicatif exécuté par l'agent. Consommation selon quota Agnes. Les tests de ce lanceur sont simulés; l'appel réel exige une authentification valide.

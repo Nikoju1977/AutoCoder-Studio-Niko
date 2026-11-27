@@ -16,7 +16,7 @@ function mergedFiles(original,changes) {
   for(const f of changes)result.set(f.name.toLowerCase(),f);
   return validateFiles([...result.values()]);
 }
-function parseIdeas(response) {
+export function parseIdeas(response) {
   const raw = singleArtifact(response, 'ideas.json');
   if (raw.length > 3000) throw Error('Innovation response too long');
   const ideas = JSON.parse(raw)?.ideas;

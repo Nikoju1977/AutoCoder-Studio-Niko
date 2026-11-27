@@ -1,0 +1,11 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {TARGET,innovateNative} from '../innovator-native.mjs';
+const files=TARGET.paths.map((path,i)=>({path,sha:String(i+1).repeat(40),size:30}));
+const snap={repo:TARGET.repo,commit:TARGET.commit,partial:false,files};
+const project={files:files.map((f,i)=>({name:'file-0'+(i+1)+'.js',content:'export const x = 1;'})),github:{repo:TARGET.repo,commit:TARGET.commit,mapping:files.map((f,i)=>({name:'file-0'+(i+1)+'.js',path:f.path,sha:f.sha}))}};
+const good={files:[{name:'ideas.json',content:JSON.stringify({ideas:[{title:'Filtre',benefit:'Réduction du bruit',effort:'low',test:'Comparer MAE sur un signal indépendant'}]})}]};
+const opts={approved:true,loadRepo:async()=>snap,loadFiles:async()=>project};
+test('targeted innovation uses exactly one request and no publication',async()=>{let calls=0;const r=await innovateNative({...opts,request:async a=>{calls++;assert.equal(a.role,'innovator');assert.equal(a.provider,'agnes');assert.equal(a.files.length,3);return good;}});assert.equal(calls,1);assert.equal(r.publicationAuthorized,false);assert.equal(r.testsExecuted,false);assert.equal(r.ideas.length,1);});
+test('no consent or stale commit prevents request',async()=>{const request=async()=>assert.fail('provider forbidden');await assert.rejects(innovateNative({...opts,approved:false,request}));await assert.rejects(innovateNative({...opts,loadRepo:async()=>({...snap,commit:'a'.repeat(40)}),request}));});
+test('wrong blob mapping and invalid agent response fail closed',async()=>{await assert.rejects(innovateNative({...opts,loadFiles:async()=>({...project,github:{...project.github,mapping:project.github.mapping.map(m=>({...m,sha:'a'.repeat(40)}))}}),request:async()=>assert.fail('provider forbidden')}));await assert.rejects(innovateNative({...opts,request:async()=>({files:[{name:'ideas.json',content:'{"ideas":[]}'}]})}));});
