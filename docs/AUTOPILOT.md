@@ -10,3 +10,6 @@
 ## V2 — Revue privée
 
 La [passerelle GitHub privée](REVIEW-BRIDGE.md) permet la transmission d'une proposition approuvée sans export manuel. L'export JSON reste disponible. Aucun push ni fusion automatique.
+
+## UI Engine Pro V1
+Dans Autopilot, choisir un profil graphique, autoriser les appels Agnes et démarrer. Les six profils partagent les quatre agents existants et le budget maximum de 12 appels par lot. Chaque profil possède son propre curseur. Seuls les petits fichiers HTML/CSS déjà admissibles sont sélectionnés (trois maximum); pas de JavaScript, framework ajouté, dépôts privés ou sensibles. Les grands fichiers et applications sans fichiers admissibles nécessitent un traitement manuel. Un contrôle lexical conservateur bloque certains changements de contrats HTML et de ressources CSS; il ne garantit ni sécurité ni accessibilité. Toute proposition reste soumise à revue humaine, tests navigateur et validation avant fusion. Les quotas Agnes restent applicables. Aucun rendu visuel ni test réel n'est exécuté par les agents eux-mêmes.

@@ -1,8 +1,9 @@
 import {catalog,runBatch,readCursor,CURSOR,MAX_REPOS,MAX_CALLS,approvedExport} from './autopilot.mjs';
 import {bridgeStatus,sendReview} from './review-bridge-client.mjs';
+import {cursorKey} from './ui-engine.mjs';
 const $=id=>document.getElementById(id);
 let authenticated=false,controller=null,entries=[],sessionBusy=false,bridgeReady=false,bridgeBusy=false,bridgeControls=[],receipts=new WeakMap();
-function state(){const busy=Boolean(controller)||sessionBusy||bridgeBusy;$('start').disabled=!authenticated||busy;$('stop').disabled=!controller;$('login').disabled=authenticated||busy;$('logout').disabled=!authenticated||busy;$('token').disabled=authenticated||busy;$('reset').disabled=busy;$('bridge-refresh').disabled=!authenticated||busy;for(const sync of bridgeControls)sync();}
+function state(){const busy=Boolean(controller)||sessionBusy||bridgeBusy;$('start').disabled=!authenticated||busy;$('stop').disabled=!controller;$('login').disabled=authenticated||busy;$('logout').disabled=!authenticated||busy;$('token').disabled=authenticated||busy;$('reset').disabled=busy;$('mode').disabled=busy;$('bridge-refresh').disabled=!authenticated||busy;for(const sync of bridgeControls)sync();}
 async function session(body){
  const r=await fetch('/api/session',{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',redirect:'error',...(body?{headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{})});
  if(!r.ok)throw Error('Session HTTP '+r.status);return r.json();
@@ -51,22 +52,23 @@ $('start').onclick=async()=>{
  if(!authenticated||controller||sessionBusy||bridgeBusy)return;
  if(!$('consent').checked){$('progress').textContent='Autorise les appels Agnes avant le lancement.';return;}
  if(entries.some(x=>x.proposal&&!receipts.has(x))&&!confirm('Des propositions ne sont pas transmises. Le prochain lot efface leur affichage. Continuer ?'))return;
+ const mode=$('mode').value;
  controller=new AbortController();state();entries=[];receipts=new WeakMap();render();
  try{
   $('progress').textContent='Inventaire public GitHub…';
   const rows=await catalog({signal:controller.signal});
-  let cursor='';try{cursor=readCursor(localStorage);}catch{}
+  let cursor='';try{cursor=readCursor(localStorage,mode);}catch{}
   $('inventory').textContent=rows.length+' dépôts publics admissibles · reprise après '+(cursor||'début');
-  const r=await runBatch({rows,cursor,signal:controller.signal,limit:MAX_REPOS,onProgress:({repo,stage,calls,cursor,entry})=>{
+  const r=await runBatch({rows,cursor,mode,signal:controller.signal,limit:MAX_REPOS,onProgress:({repo,stage,calls,cursor,entry})=>{
    $('progress').textContent=repo+' · '+stage+' · '+calls+'/'+MAX_CALLS+' appels maximum';
    if(entry){entries.push(entry);render();}
-   if(cursor)try{localStorage.setItem(CURSOR,cursor);}catch{}
+   if(cursor)try{localStorage.setItem(cursorKey(CURSOR,mode),cursor);}catch{}
   }});
   entries=r.results;render();$('progress').textContent=(r.complete?'Catalogue parcouru':'Lot terminé ou arrêté')+' · '+r.calls+' appels tentés · '+r.results.length+' dépôt(s). Aucun push. Reprendre pour le lot suivant.';
  }catch(e){$('progress').textContent=String(e.message||e);}
  finally{controller=null;$('consent').checked=false;state();await refresh();}
 };
 $('stop').onclick=()=>controller?.abort();
-$('reset').onclick=()=>{if(!controller&&!sessionBusy&&!bridgeBusy&&confirm('Recommencer au premier dépôt ?')){try{localStorage.removeItem(CURSOR);$('progress').textContent='Curseur réinitialisé.';}catch{$('progress').textContent='Stockage local indisponible.';}}};
+$('reset').onclick=()=>{if(!controller&&!sessionBusy&&!bridgeBusy&&confirm('Recommencer au premier dépôt ?')){try{localStorage.removeItem(cursorKey(CURSOR,$('mode').value));$('progress').textContent='Curseur réinitialisé.';}catch{$('progress').textContent='Stockage local indisponible.';}}};
 window.addEventListener('pagehide',()=>controller?.abort());
 refresh();
