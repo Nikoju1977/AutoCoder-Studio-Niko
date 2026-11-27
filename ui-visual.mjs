@@ -1,5 +1,7 @@
 // Studio Niko Design — local, network-isolated static visual evidence.
 import {chromium} from 'playwright';
+import axe from 'axe-core';
+import {pixelDiff} from './ui-pixels.mjs';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
 const ORIGIN='https://niko-visual.invalid';
@@ -23,6 +25,10 @@ export function compareMetrics(before,after){
  if(after.smallControls>before.smallControls)regressions.push('Petites cibles supplémentaires');
  if(after.lowContrast>before.lowContrast)regressions.push('Contrastes texte faibles supplémentaires (fonds simples)');
  if(after.positiveTabindex>before.positiveTabindex)regressions.push('Ordres de tabulation positifs supplémentaires');
+ if(before.axe?.status==='measured'&&after.axe?.status==='measured'){
+  const prior=new Map(before.axe.violations.map(v=>[v.id,v.nodes]));
+  for(const v of after.axe.violations)if(v.nodes>(prior.get(v.id)||0))regressions.push('axe-core : '+v.id);
+ }else if(before.axe?.status==='measured'&&after.axe?.status!=='measured')regressions.push('Mesure axe-core indisponible après modification');
  return regressions;
 }
 async function capture(browser,files,entry,viewport,screenshot){
@@ -64,7 +70,14 @@ async function capture(browser,files,entry,viewport,screenshot){
    return {overflow:Math.max(0,document.documentElement.scrollWidth-innerWidth,(document.body?.scrollWidth||0)-innerWidth,Math.ceil(document.body?.getBoundingClientRect().right||0)-innerWidth),visibleControls:visible.length,unnamedControls:visible.filter(e=>!named(e)).length,smallControls:visible.filter(small).length,smallButtons:visible.filter(e=>e.matches('button:not(:disabled)')&&small(e)).length,positiveTabindex:visible.filter(e=>e.tabIndex>0).length,lowContrast,contrastChecked,contrastUnknown};
   });
   await page.screenshot({path:screenshot,animations:'disabled',timeout:10000});
-  return {...metrics,blockedResources:[...blocked]};
+  let accessibility={status:'unavailable'};
+  try{
+   // DevTools evaluation injects only the pinned trusted audit library. Project scripts stay disabled.
+   await page.evaluate(axe.source);
+   const a=await page.evaluate(async()=>await window.axe.run(document,{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21a','wcag21aa']},resultTypes:['violations','incomplete','passes','inapplicable']}));
+   accessibility={status:'measured',version:axe.version,violations:a.violations.map(v=>({id:v.id,impact:v.impact,nodes:v.nodes.length})),incomplete:a.incomplete.map(v=>({id:v.id,nodes:v.nodes.length})),passedRules:a.passes.length};
+  }catch{accessibility={status:'unavailable',reason:'Injection ou audit axe-core non exécuté'};}
+  return {...metrics,axe:accessibility,blockedResources:[...blocked]};
  }finally{await ctx.close();}
 }
 export async function auditVisual(bundle,out){
@@ -77,9 +90,11 @@ export async function auditVisual(bundle,out){
    const b='before-'+viewport.width+'.png',a='after-'+viewport.width+'.png';
    const old=await capture(browser,before,entry,viewport,join(out,b));
    const next=await capture(browser,after,entry,viewport,join(out,a));
-   results.push({viewport,before:old,after:next,screenshots:{before:b,after:a},regressions:compareMetrics(old,next)});
+   const diff='diff-'+viewport.width+'.png';
+   const pixels=await pixelDiff(browser,join(out,b),join(out,a),join(out,diff));
+   results.push({viewport,before:old,after:next,screenshots:{before:b,after:a,diff},pixels,regressions:compareMetrics(old,next)});
   }
-  const report={kind:'static-visual-proof',entry,fullApplicationTested:false,accessibilityCertified:false,publicationAuthorized:false,status:results.some(r=>r.regressions.length)?'regression_detected':'manual_review_required',results,limitations:['JavaScript désactivé','Ressources externes et fichiers non inclus bloqués','Contrôles de noms et tailles heuristiques','Contrastes approximatifs sur fonds opaques simples uniquement; pas de test métier ni de performances runtime']};
+  const report={kind:'static-visual-proof',entry,fullApplicationTested:false,accessibilityCertified:false,axeComplete:results.every(r=>r.before.axe.status==='measured'&&r.after.axe.status==='measured'),publicationAuthorized:false,status:results.some(r=>r.regressions.length)?'regression_detected':'manual_review_required',results,limitations:['JavaScript désactivé','Ressources externes et fichiers non inclus bloqués','Contrôles de noms et tailles heuristiques; axe-core partiel, cas incomplets à revoir','Contrastes approximatifs sur fonds opaques simples uniquement; pas de test métier ni de performances runtime; taux de pixels modifiés ≠ qualité esthétique']};
   await writeFile(join(out,'report.json'),JSON.stringify(report,null,2));
   return report;
  }finally{await browser.close();}
