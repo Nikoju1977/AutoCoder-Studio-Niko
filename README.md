@@ -40,7 +40,7 @@ flowchart TD
 
 - `app.js` : état local, récupération et limites de fichiers ; aucun chiffrement du stockage n'est revendiqué.
 - `py-worker.js` : Pyodide 0.25.1 chargé depuis un CDN. Le Worker évite de bloquer directement le thread UI mais ne constitue pas une isolation de sécurité pour du code hostile.
-- `api/generate.mjs` : appel distant à OpenAI Responses, validation des entrées/sorties, jeton comparé avec `timingSafeEqual` après hachage ; ni authentification individuelle ni quota par utilisateur ne sont établis.
+- `api/generate.mjs` : routage serveur vers OpenAI, Agnes AI ou Mistral, validation des entrées/sorties, jeton comparé avec `timingSafeEqual` après hachage ; ni authentification individuelle ni quota par utilisateur ne sont établis.
 - `package.json` : Playwright est une dépendance de développement, pas une dépendance de l'interface statique.
 - `studio-niko-core.js` : utilitaires locaux de stockage, JSON et diagnostic.
 
@@ -103,11 +103,11 @@ La route `GET /api/status` indique uniquement si les variables nécessaires sont
 
 1. Déployer **le dossier complet** comme projet Vercel (pas uniquement `index.html`). Les pages statiques seront servies normalement et `api/generate.mjs` en fonction Node.
 2. Dans les paramètres d'environnement Vercel, définir :
-   - `OPENAI_API_KEY` : clé du fournisseur, **uniquement côté serveur**.
+   - `AGNES_API_KEY`, `OPENAI_API_KEY` ou `MISTRAL_API_KEY` : clé du fournisseur, **uniquement côté serveur**. Pour privilégier Agnes, définir `AUTOCODER_DEFAULT_PROVIDER=agnes`.
    - `AUTOCODER_ACCESS_TOKEN` : secret fort et aléatoire de 32 caractères ou plus (requis par l'API).
    - `OPENAI_MODEL` : facultatif, défaut `gpt-4.1-mini` ; vérifier que ce modèle est disponible sur le compte API.
 3. Redéployer le projet après ajout des variables.
-4. Dans l'interface, choisir « IA via API serveur protégée » et saisir **AUTOCODER_ACCESS_TOKEN**, jamais la clé OpenAI.
+4. Dans l'interface, choisir « IA via API serveur protégée » et saisir **AUTOCODER_ACCESS_TOKEN**, jamais la clé du fournisseur.
 
 Le jeton d'accès est gardé uniquement en mémoire de l'onglet : il doit être ressaisi après rechargement, fermeture ou changement d'appareil.
 
@@ -167,11 +167,11 @@ Propositions à valider (non terminées) :
 
 ## English overview
 
-AutoCoder is a browser-native development workspace with multi-file editing, local deterministic project templates, JSON import/export, recovery snapshots, Python execution through Pyodide and sandboxed web previews. It uses vanilla JavaScript; Python's first load requires a CDN. Optional server-side AI requires an OpenAI API key and an access token configured on Vercel. The four pipeline stages are not four independent LLM agents. Local browser storage is not encrypted, and the worker is not a secure sandbox for hostile code.
+AutoCoder is a browser-native development workspace with multi-file editing, local deterministic project templates, JSON import/export, recovery snapshots, Python execution through Pyodide and sandboxed web previews. It uses vanilla JavaScript; Python's first load requires a CDN. Optional server-side AI requires a configured provider API key and an access token configured on Vercel. The four pipeline stages are not four independent LLM agents. Local browser storage is not encrypted, and the worker is not a secure sandbox for hostile code.
 
 See the French instructions above for setup, configuration and limitations. Historical checks are documented in [TESTS_VERIFIES.md](TESTS_VERIFIES.md); current runtime and production availability are not established by this documentation update.
 
-Local-first is a design choice, not a claim of zero network access: Pyodide needs an initial download and optional OpenAI generation sends request context to the provider through the server. The UI uses no production framework. Suggested first contribution: reproduce a recovery or preview defect.
+Local-first is a design choice, not a claim of zero network access: Pyodide needs an initial download and optional server-side generation sends request context to the provider through the server. The UI uses no production framework. Suggested first contribution: reproduce a recovery or preview defect.
 
 ## Contribution et droits / Contributions and rights
 
