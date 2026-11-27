@@ -11,3 +11,13 @@ test('safe export and schema limits',()=>{
  const x=exportLayout(d);assert.ok(x.html.includes('&lt;script&gt;'));assert.ok(!x.html.includes('<script>'));assert.match(x.css,/grid-column:span 3/);
  assert.deepEqual(decodeLayout(JSON.stringify(d)),d);assert.throws(()=>change(d,{type:'edit',id:'n1',span:13}));assert.throws(()=>normalize({...d,items:[d.items[0],d.items[0]]}));
 });
+
+import {applicationTemplate} from '../ui-builder.mjs';
+test('functional templates, strict links, deletion clears dependent action',()=>{
+ const d=applicationTemplate('tasks');assert.equal(d.items[1].action.kind,'append');
+ assert.throws(()=>change(d,{type:'edit',id:'n2',action:{kind:'append',source:'n1',target:'n3'}}));
+ assert.throws(()=>change(d,{type:'edit',id:'n2',action:{kind:'eval',target:'n4'}}));
+ const cleaned=change(d,{type:'remove',id:'n1'});assert.equal(cleaned.items.find(x=>x.id==='n2').action,undefined);
+ const x=exportLayout(d);assert.match(x.html,/app\.js/);assert.match(x.js,/addEventListener/);assert.match(x.html,/data-niko-node="n2"/);
+ assert.deepEqual(decodeLayout(JSON.stringify(d)),d);
+});

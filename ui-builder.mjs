@@ -1,6 +1,7 @@
 // Studio Niko Design — V8 responsive layout builder, pure data model.
 import {THEMES,cssVars,validateTheme} from './ui-theme.mjs';
-export const TYPES=Object.freeze({heading:'Titre',text:'Texte',card:'Carte',button:'Bouton',input:'Champ',progress:'Progression',viewport:'Aperçu'});
+export const TYPES=Object.freeze({heading:'Titre',text:'Texte',card:'Carte',button:'Bouton',input:'Champ',progress:'Progression',viewport:'Aperçu',output:'Résultat',list:'Liste'});
+export const ACTIONS=Object.freeze({copy:'Afficher la saisie',append:'Ajouter à la liste',increment:'Augmenter la progression',reset:'Réinitialiser la progression',clear:'Vider la liste'});
 const cleanText=v=>{if(typeof v!=='string'||v.length>300)throw Error('Texte invalide');return v;};
 const integer=(v,min,max)=>{if(!Number.isInteger(v)||v<min||v>max)throw Error('Dimension invalide');return v;};
 export function normalize(doc){
@@ -10,6 +11,16 @@ export function normalize(doc){
   if(!x||!/^n[1-9]\d{0,7}$/.test(x.id)||seen.has(x.id)||!Object.hasOwn(TYPES,x.type))throw Error('Composant invalide');
   seen.add(x.id);return {id:x.id,type:x.type,text:cleanText(x.text),span:integer(x.span,1,12),height:integer(x.height,44,480)};
  });
+ const byId=new Map(items.map(x=>[x.id,x]));
+ for(const [i,x] of doc.items.entries()){
+  if(x.action==null)continue;
+  const a=x.action;
+  if(x.type!=='button'||!Object.hasOwn(ACTIONS,a.kind))throw Error('Action non autorisée');
+  const target=byId.get(a.target),source=byId.get(a.source);
+  const targetType={copy:'output',append:'list',increment:'progress',reset:'progress',clear:'list'}[a.kind];
+  if(target?.type!==targetType||(['copy','append'].includes(a.kind)&&source?.type!=='input'))throw Error('Liaison invalide');
+  items[i].action={kind:a.kind,target:a.target,...(['copy','append'].includes(a.kind)?{source:a.source}:{})};
+ }
  return {format:'niko-layout-v1',title:cleanText(doc.title),theme:validateTheme(doc.theme),items};
 }
 export function blank(){return normalize({format:'niko-layout-v1',title:'Creative Workspace',theme:THEMES.cinematic,items:[]});}
@@ -24,9 +35,9 @@ export function change(doc,action){
  else if(action.type==='theme')d.theme=action.value;
  else{
   if(i<0)throw Error('Composant absent');
-  if(action.type==='remove')d.items.splice(i,1);
+  if(action.type==='remove'){d.items.splice(i,1);for(const x of d.items)if(x.action&&(x.action.target===action.id||x.action.source===action.id))delete x.action;}
   else if(action.type==='move'){const to=integer(action.to,0,d.items.length-1);const [item]=d.items.splice(i,1);d.items.splice(to,0,item);}
-  else if(action.type==='edit'){for(const k of ['text','span','height'])if(Object.hasOwn(action,k))d.items[i][k]=action[k];}
+  else if(action.type==='edit'){for(const k of ['text','span','height','action'])if(Object.hasOwn(action,k))d.items[i][k]=action[k];}
   else throw Error('Action inconnue');
  }
  return normalize(d);
@@ -47,18 +58,52 @@ export function componentMarkup(item){
   case 'heading':return '<h2>'+text+'</h2>';
   case 'text':return '<p>'+text+'</p>';
   case 'card':return '<section><h2>'+text+'</h2></section>';
-  case 'button':return '<button type="button" disabled>'+text+'</button>';
+  case 'button':return '<button type="button"'+(item.action?'':' disabled')+'>'+text+'</button>';
   case 'input':return '<label>'+text+'<input type="text"></label>';
-  case 'progress':return '<label>'+text+'<progress max="100" value="65">65 %</progress></label>';
+  case 'progress':return '<label>'+text+'<progress max="100" value="0">0 %</progress></label>';
+  case 'output':return '<div>'+text+'</div><output aria-live="polite"></output>';
+  case 'list':return '<div>'+text+'</div><ul aria-live="polite"></ul>';
   case 'viewport':return '<div class="viewport">'+text+'</div>';
   default:throw Error('Type invalide');
  }
 }
 export const BASE_CSS='*{box-sizing:border-box}body{margin:0;font:1rem/1.5 system-ui,sans-serif;background:var(--niko-bg);color:var(--niko-text)}main{max-width:1200px;margin:auto;padding:clamp(16px,4vw,48px)}.layout-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:var(--niko-gap)}.layout-item{min-width:0;padding:16px;background:var(--niko-surface);border:1px solid var(--niko-line);border-radius:var(--niko-radius);overflow-wrap:anywhere}.layout-item h2,.layout-item p{margin:0 0 8px}input,button,progress{max-width:100%;font:inherit}input,button{min-height:44px;background:var(--niko-bg);color:var(--niko-text);border:1px solid var(--niko-line);border-radius:8px;padding:8px}input,progress{display:block;width:100%}button:disabled{opacity:.7}.viewport{display:grid;place-items:center;min-height:100px;border:1px dashed var(--niko-line)}:focus-visible{outline:3px solid var(--niko-accent);outline-offset:3px}@media(max-width:600px){.layout-grid{grid-template-columns:minmax(0,1fr)}.layout-item{grid-column:1!important}}';
+// Trusted fixed runtime; it never evaluates user code, calls a network or persists form data.
+export function bindRuntime(root,bindings){
+ const nodes=new Map([...root.querySelectorAll('[data-niko-node]')].map(e=>[e.dataset.nikoNode,e]));
+ for(const {id,action:a} of bindings){
+  const button=nodes.get(id)?.querySelector('button');
+  if(!button)continue;
+  button.addEventListener('click',()=>{
+   const target=nodes.get(a.target);
+   if(!target)return;
+   const source=nodes.get(a.source)?.querySelector('input');
+   const value=source?.value.trim().slice(0,300)||'';
+   if(a.kind==='copy'){const out=target.querySelector('output');if(out)out.textContent=value;}
+   else if(a.kind==='append'){const list=target.querySelector('ul');if(list&&value&&list.children.length<100){const li=root.ownerDocument.createElement('li');li.textContent=value;list.append(li);source.value='';}}
+   else if(a.kind==='clear'){target.querySelector('ul')?.replaceChildren();}
+   else if(a.kind==='increment'||a.kind==='reset'){const p=target.querySelector('progress');if(p)p.value=a.kind==='reset'?0:Math.min(p.max,p.value+10);}
+  });
+ }
+}
+export function applicationTemplate(kind){
+ const d=blank();
+ const templates={
+  contact:{title:'Formulaire local',items:[['input','Votre message',12],['button','Afficher',6],['output','Message saisi',6]],links:[{id:'n2',action:{kind:'copy',source:'n1',target:'n3'}}]},
+  tasks:{title:'Liste de tâches locale',items:[['input','Nouvelle tâche',12],['button','Ajouter',6],['button','Vider',6],['list','Tâches',12]],links:[{id:'n2',action:{kind:'append',source:'n1',target:'n4'}},{id:'n3',action:{kind:'clear',target:'n4'}}]},
+  progress:{title:'Suivi de progression',items:[['progress','Avancement',12],['button','+10 %',6],['button','Réinitialiser',6]],links:[{id:'n2',action:{kind:'increment',target:'n1'}},{id:'n3',action:{kind:'reset',target:'n1'}}]}
+ };
+ if(!Object.hasOwn(templates,kind))throw Error('Modèle inconnu');
+ const t=templates[kind];d.title=t.title;d.items=t.items.map(([type,text,span],i)=>({id:'n'+(i+1),type,text,span,height:64}));
+ for(const l of t.links)d.items.find(x=>x.id===l.id).action=l.action;
+ return normalize(d);
+}
 export function exportLayout(doc){
  const d=normalize(doc);
  const css='/* Studio Niko Design V8 */\n:root{'+Object.entries(cssVars(d.theme)).map(([k,v])=>k+':'+v).join(';')+'}\n'+BASE_CSS+'\n'+d.items.map(x=>'#'+x.id+'{grid-column:span '+x.span+';min-height:'+x.height+'px}').join('\n');
- const html='<!doctype html>\n<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(d.title)+'</title><link rel="stylesheet" href="layout.css"></head><body><main><h1>'+esc(d.title)+'</h1><div class="layout-grid">'+d.items.map(x=>'<div class="layout-item" id="'+x.id+'">'+componentMarkup(x)+'</div>').join('\n')+'</div></main></body></html>';
- return {html,css};
+ const html='<!doctype html>\n<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src \'none\';script-src \'self\';style-src \'self\';base-uri \'none\';form-action \'none\'"><title>'+esc(d.title)+'</title><link rel="stylesheet" href="layout.css"><script defer src="app.js"></script></head><body><main><h1>'+esc(d.title)+'</h1><div class="layout-grid">'+d.items.map(x=>'<div class="layout-item" id="'+x.id+'" data-niko-node="'+x.id+'">'+componentMarkup(x)+'</div>').join('\n')+'</div></main></body></html>';
+ const bindings=d.items.filter(x=>x.action).map(x=>({id:x.id,action:x.action}));
+ const js='/* Studio Niko Design — local actions only */\n('+bindRuntime.toString()+')(document.querySelector(".layout-grid"),'+JSON.stringify(bindings)+');\n';
+ return {html,css,js};
 }
 export function decodeLayout(raw){if(typeof raw!=='string'||raw.length>100000)throw Error('Fichier invalide');return normalize(JSON.parse(raw));}
