@@ -12,3 +12,12 @@ test('Agnes works as the sole configured provider', () => {
   assert.equal(body.messages[1].content, 'input');
   assert.equal(extractText(config, {choices: [{message: {content: '{"files":[]}'}}]}), '{"files":[]}');
 });
+
+test('Agnes receives the expected artifact in the role-specific response example', () => {
+  const config = selectProvider({provider: 'agnes'}, {AGNES_API_KEY: 'mock-key'});
+  for (const name of ['plan.md', 'review.json']) {
+    const body = providerBody(config, 'consigne', '{}', {}, 1024, name);
+    assert.ok(body.messages[0].content.includes('"name":"' + name + '"'));
+    assert.ok(!body.messages[0].content.includes('main.py'));
+  }
+});
