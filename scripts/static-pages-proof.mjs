@@ -8,7 +8,7 @@ export function validateManifest(m){
  if(m?.version!==1||!Array.isArray(m.targets)||!m.targets.length||m.targets.length>8)throw Error('Invalid manifest');
  const repos=new Set();
  for(const t of m.targets){
-  if(!allowed.has(t.repo)||repos.has(t.repo)||!/^[0-9a-f]{40}$/.test(t.commit)||!Number.isSafeInteger(t.pagesRun)||t.pagesRun<1||!Array.isArray(t.files)||!t.files.length||t.files.length>12||new Set(t.files).size!==t.files.length)throw Error('Invalid target');
+  if(!allowed.has(t.repo)||repos.has(t.repo)||!/^[0-9a-f]{40}$/.test(t.commit)||!(t.pagesRun===null||(Number.isSafeInteger(t.pagesRun)&&t.pagesRun>=1))||!Array.isArray(t.files)||!t.files.length||t.files.length>12||new Set(t.files).size!==t.files.length)throw Error('Invalid target');
   repos.add(t.repo);
   for(const p of t.files)if(!/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,99}$/.test(p)||p==='.'||p==='..')throw Error('Invalid file');
  }
@@ -37,7 +37,7 @@ export async function audit(m,reader=fetchDigest){
   const [source,served]=await Promise.all([reader(sourceUrl),reader(publicUrl)]);
   rows.push({repo:t.repo,commit:t.commit,pagesRun:t.pagesRun,path,...compare(source,served)});
  }
- return {checkedAt:new Date().toISOString(),scope:'selected static files only; no runtime or complete revision certification',productionRuntimeVerified:false,rows};
+ return {checkedAt:new Date().toISOString(),scope:'selected static files only; a null Pages run records byte matching without deployment attribution; no runtime or complete revision certification',productionRuntimeVerified:false,rows};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
  const m=JSON.parse(readFileSync(new URL('../tests/static-pages-targets.json',import.meta.url),'utf8'));

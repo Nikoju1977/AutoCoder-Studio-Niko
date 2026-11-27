@@ -6,3 +6,10 @@ test('bytes matched, mismatched and unavailable are distinct',async()=>{const a=
 test('audit uses immutable source and exact public URL',async()=>{const urls=[];const r=await audit(m,async url=>{urls.push(url);return {ok:true,status:200,bytes:4,sha256:'a'.repeat(64)}});assert.equal(r.rows[0].status,'match');assert.equal(r.productionRuntimeVerified,false);assert.deepEqual(urls,['https://raw.githubusercontent.com/Nikoju1977/oracle-du-jardinier/'+m.targets[0].commit+'/index.html','https://nikoju1977.github.io/oracle-du-jardinier/index.html']);});
 
 test('expanded manifest covers four static sites and twelve files',async()=>{const {readFileSync}=await import('node:fs');const m=JSON.parse(readFileSync(new URL('./static-pages-targets.json',import.meta.url),'utf8'));assert.equal(validateManifest(m).targets.length,4);assert.equal(m.targets.reduce((n,t)=>n+t.files.length,0),12);const report=await audit(m,async()=>({ok:true,status:200,bytes:1,sha256:'b'.repeat(64)}));assert.equal(report.rows.length,12);assert.equal(report.rows.filter(r=>r.repo==='Neural-Art-mars-2026').length,3);assert.equal(report.rows.filter(r=>r.repo==='ia-studio-cine').length,2);});
+
+test('byte proof can omit unconfirmed Pages attribution', async () => {
+ const candidate={version:1,targets:[{...m.targets[0],pagesRun:null}]};
+ const report=await audit(candidate,async()=>({ok:true,status:200,bytes:1,sha256:'a'.repeat(64)}));
+ assert.equal(report.rows[0].pagesRun,null);
+ assert.equal(report.rows[0].status,'match');
+});

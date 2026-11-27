@@ -3,8 +3,8 @@
   "targets": [
     {
       "repo": "the-lovestronautes-machine",
-      "commit": "2bde151a1497d9f7869646fefd17e3f5fb1bde84",
-      "pagesRun": 45548941093,
+      "commit": "93c6db320164f5aa799b106e90ad37da798c4d27",
+      "pagesRun": null,
       "files": [
         "index.html",
         "sw.js",
@@ -24,8 +24,8 @@
     },
     {
       "repo": "Neural-Art-mars-2026",
-      "commit": "ff745ae4dbe3132204ed5d5ad1941745f91d6a45",
-      "pagesRun": 45311874714,
+      "commit": "1877fc6dcb1862219b4c7e7d2deef31960b236b7",
+      "pagesRun": null,
       "files": [
         "index.html",
         "manifest.json",
@@ -34,8 +34,8 @@
     },
     {
       "repo": "ia-studio-cine",
-      "commit": "b6a61286dc2b320f2b6aa3f30d8480c8b02ec96b",
-      "pagesRun": 45311871162,
+      "commit": "8c91b796716bba1b9208ae374d3a79262bc7a43e",
+      "pagesRun": null,
       "files": [
         "index.html",
         "manifest.json"
