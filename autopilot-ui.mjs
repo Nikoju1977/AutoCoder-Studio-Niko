@@ -1,8 +1,9 @@
-import {catalog,runBatch,readCursor,CURSOR,MAX_REPOS,MAX_CALLS,approvedExport} from './autopilot.mjs';
+import {innovateNative} from './innovator-native.mjs';
+import {catalog,runBatch,readCursor,CURSOR,MAX_REPOS,MAX_CALLS,approvedExport,requestAgnes} from './autopilot.mjs';
 import {bridgeStatus,sendReview} from './review-bridge-client.mjs';
 const $=id=>document.getElementById(id);
 let authenticated=false,controller=null,entries=[],sessionBusy=false,bridgeReady=false,bridgeBusy=false,bridgeControls=[],receipts=new WeakMap();
-function state(){const busy=Boolean(controller)||sessionBusy||bridgeBusy;$('start').disabled=!authenticated||busy;$('stop').disabled=!controller;$('login').disabled=authenticated||busy;$('logout').disabled=!authenticated||busy;$('token').disabled=authenticated||busy;$('reset').disabled=busy;$('bridge-refresh').disabled=!authenticated||busy;for(const sync of bridgeControls)sync();}
+function state(){const busy=Boolean(controller)||sessionBusy||bridgeBusy;$('start').disabled=!authenticated||busy;$('innovation-start').disabled=!authenticated||busy||!$('innovation-consent').checked;$('innovation-consent').disabled=!authenticated||busy;$('stop').disabled=!controller;$('innovation-stop').disabled=!controller;$('login').disabled=authenticated||busy;$('logout').disabled=!authenticated||busy;$('token').disabled=authenticated||busy;$('reset').disabled=busy;$('bridge-refresh').disabled=!authenticated||busy;for(const sync of bridgeControls)sync();}
 async function session(body){
  const r=await fetch('/api/session',{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',redirect:'error',...(body?{headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{})});
  if(!r.ok)throw Error('Session HTTP '+r.status);return r.json();
@@ -18,7 +19,7 @@ async function refreshBridge(){
 $('bridge-refresh').onclick=async()=>{if(!authenticated||sessionBusy||controller||bridgeBusy)return;sessionBusy=true;state();try{await refreshBridge();}finally{sessionBusy=false;state();}};
 async function refresh(){sessionBusy=true;state();try{authenticated=(await session()).authenticated===true;$('session').textContent=authenticated?'Session active — jeton non requis':'Connexion requise';}catch(e){authenticated=false;$('session').textContent=e.message;}finally{await refreshBridge();sessionBusy=false;state();}}
 $('login').onclick=async()=>{if(sessionBusy||controller||bridgeBusy)return;sessionBusy=true;state();try{authenticated=(await session({action:'login',token:$('token').value})).authenticated===true;$('session').textContent='Session active pour sept jours';}catch(e){$('session').textContent=e.message;}finally{$('token').value='';await refreshBridge();sessionBusy=false;state();}};
-$('logout').onclick=async()=>{if(sessionBusy||controller||bridgeBusy)return;sessionBusy=true;state();try{await session({action:'logout'});authenticated=false;bridgeReady=false;entries=[];receipts=new WeakMap();render();$('bridge-state').textContent='Connexion Autopilot requise.';$('session').textContent='Session fermée';}catch(e){$('session').textContent=e.message;}finally{sessionBusy=false;state();}};
+$('logout').onclick=async()=>{if(sessionBusy||controller||bridgeBusy)return;sessionBusy=true;state();try{await session({action:'logout'});authenticated=false;bridgeReady=false;entries=[];receipts=new WeakMap();render();$('bridge-state').textContent='Connexion Autopilot requise.';$('session').textContent='Session fermée';$('innovation-result').textContent='Aucune proposition.';$('innovation-status').textContent='Connexion requise.';$('innovation-consent').checked=false;}catch(e){$('session').textContent=e.message;}finally{sessionBusy=false;state();}};
 function render(){
  $('results').replaceChildren();bridgeControls=[];
  for(const entry of entries){
@@ -66,6 +67,24 @@ $('start').onclick=async()=>{
  }catch(e){$('progress').textContent=String(e.message||e);}
  finally{controller=null;$('consent').checked=false;state();await refresh();}
 };
+$('innovation-consent').onchange=state;
+$('innovation-start').onclick=async()=>{
+ if(!authenticated||controller||sessionBusy||bridgeBusy||!$('innovation-consent').checked)return;
+ controller=new AbortController();const signal=controller.signal;state();
+ $('innovation-result').textContent='Aucune proposition.';
+ $('innovation-status').textContent='Lecture des trois fichiers publics à la révision fixée…';
+ try{
+  const result=await innovateNative({approved:true,signal,request:async args=>{
+   $('innovation-status').textContent='Agent Innovateur Agnes · un appel maximum…';
+   return requestAgnes(args);
+  }});
+  if(signal.aborted)return;
+  $('innovation-result').textContent=JSON.stringify(result,null,2);
+  $('innovation-status').textContent=result.ideas.length+' idée(s) reçue(s) · revue nécessaire · aucun test applicatif exécuté · aucune publication.';
+ }catch(e){$('innovation-status').textContent=signal.aborted?'Mission annulée. Une requête déjà envoyée peut avoir consommé du quota.':'Mission indisponible : '+String(e.message||e).slice(0,200);}
+ finally{controller=null;$('innovation-consent').checked=false;state();await refresh();}
+};
+$('innovation-stop').onclick=()=>controller?.abort();
 $('stop').onclick=()=>controller?.abort();
 $('reset').onclick=()=>{if(!controller&&!sessionBusy&&!bridgeBusy&&confirm('Recommencer au premier dépôt ?')){try{localStorage.removeItem(CURSOR);$('progress').textContent='Curseur réinitialisé.';}catch{$('progress').textContent='Stockage local indisponible.';}}};
 window.addEventListener('pagehide',()=>controller?.abort());
