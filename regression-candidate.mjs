@@ -23,5 +23,5 @@ export async function generateRegressionCandidate({mission, harness, image, lang
   };
   const validation = prepareSandbox(bundle);
   return {status: result.status, providerCalls: result.providerCalls, bundle,
-    validationDigest: validation.approvalDigest, testsExecuted: false};
+    ...(result.ideas ? {ideas: result.ideas} : {}), validationDigest: validation.approvalDigest, testsExecuted: false};
 }

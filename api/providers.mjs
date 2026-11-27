@@ -4,7 +4,7 @@ const definitions = Object.freeze({
   mistral: {key:'MISTRAL_API_KEY', model:'MISTRAL_MODEL', defaultModel:'mistral-small-latest', url:'https://api.mistral.ai/v1/chat/completions'},
   agnes: {key:'AGNES_API_KEY', model:'AGNES_MODEL', defaultModel:'agnes-2.5-flash', url:'https://apihub.agnes-ai.com/v1/chat/completions'}
 });
-const roles = Object.freeze({architect:'AUTOCODER_ARCHITECT_PROVIDER',developer:'AUTOCODER_DEVELOPER_PROVIDER',critic:'AUTOCODER_CRITIC_PROVIDER'});
+const roles = Object.freeze({innovator:'AUTOCODER_INNOVATOR_PROVIDER',architect:'AUTOCODER_ARCHITECT_PROVIDER',developer:'AUTOCODER_DEVELOPER_PROVIDER',critic:'AUTOCODER_CRITIC_PROVIDER'});
 export const knownProvider = name => typeof name==='string' && Object.hasOwn(definitions,name);
 export const knownRole = role => typeof role==='string' && Object.hasOwn(roles,role);
 export function availableProviders(env=process.env){
@@ -19,8 +19,12 @@ export function selectProvider({provider,role}={},env=process.env){
 }
 export function providerBody(config,instructions,input,schema,maxTokens=12000,artifactName){
   if(config.name==='openai')return {model:config.model,store:false,max_output_tokens:maxTokens,instructions,input,text:{format:{type:'json_schema',name:'autocoder_project',strict:true,schema}}};
+  const contents = {
+    'review.json': '{"accept":true,"issues":[]}',
+    'ideas.json': '{"ideas":[{"title":"Option","benefit":"Bénéfice","effort":"low","test":"Vérification concrète"}]}'
+  };
   const example = JSON.stringify({plan: [], notes: '', files: [
-    {name: artifactName || 'main.py', content: artifactName === 'review.json' ? '{"accept":true,"issues":[]}' : 'contenu demandé'}
+    {name: artifactName || 'main.py', content: Object.hasOwn(contents, artifactName) ? contents[artifactName] : 'contenu demandé'}
   ]});
   const body={model:config.model,max_tokens:maxTokens,messages:[{role:'system',content:instructions+'\nRetourne exclusivement un objet JSON valide, sans balises Markdown, au format '+example+'.'},{role:'user',content:input}]};
   if(config.name==='mistral')body.response_format={type:'json_object'};
