@@ -1,0 +1,63 @@
+import assert from 'node:assert/strict';
+import {chromium} from 'playwright';
+const base=process.env.AUTOCODER_URL||'http://127.0.0.1:4173';
+const repo='Nikoju1977/Audio',inbox='Nikoju1977/Studio-Niko-Autopilot-Inbox',commit='a'.repeat(40),tree='b'.repeat(40),blob='c'.repeat(40);
+const source='const answer=42;\n';
+const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
+try{
+ const context=await browser.newContext({serviceWorkers:'block',viewport:{width:390,height:844}});
+ const page=await context.newPage(),errors=[],roles=[],transfers=[];
+ let ready=false;
+ page.on('pageerror',e=>errors.push(String(e)));
+ await page.route('**/api/session',route=>route.fulfill({json:{authenticated:true}}));
+ await page.route('**/api/review-bridge',async route=>{
+  if(route.request().method()==='GET')return route.fulfill({json:{configured:ready,ready,destination:inbox,state:ready?'private_verified':'setup_required'}});
+  transfers.push(route.request().postDataJSON());
+  assert.equal(route.request().headers().authorization,undefined);
+  await route.fulfill({status:201,json:{ok:true,number:19,url:'https://github.com/'+inbox+'/issues/19',fingerprint:'d'.repeat(64),reused:false,publicationAuthorized:false}});
+ });
+ await page.route('https://api.github.com/**',async route=>{
+  const u=new URL(route.request().url()),path=u.pathname;
+  let data;
+  if(path==='/users/Nikoju1977/repos')data=[{full_name:repo,private:false,archived:false,default_branch:'main',description:'Synthé'}];
+  else if(path==='/repos/'+repo)data={full_name:repo,private:false,archived:false,default_branch:'main'};
+  else if(path==='/repos/'+repo+'/commits/main')data={sha:commit,commit:{tree:{sha:tree}}};
+  else if(path==='/repos/'+repo+'/git/trees/'+tree)data={truncated:false,tree:[{path:'app.js',type:'blob',mode:'100644',sha:blob,size:Buffer.byteLength(source)}]};
+  else if(path==='/repos/'+repo+'/git/blobs/'+blob)data={sha:blob,encoding:'base64',size:Buffer.byteLength(source),content:Buffer.from(source).toString('base64')};
+  else return route.fulfill({status:404,json:{error:'Unexpected fixture route'},headers:{'Access-Control-Allow-Origin':'*'}});
+  return route.fulfill({json:data,headers:{'Access-Control-Allow-Origin':'*'}});
+ });
+ await page.route('**/api/generate',async route=>{
+  const body=route.request().postDataJSON();roles.push(body.role);assert.equal(body.provider,'agnes');
+  const file=body.role==='innovator'?{name:'ideas.json',content:JSON.stringify({ideas:[{title:'Clarté',benefit:'Lisibilité',effort:'low',test:'Syntaxe'}]})}:body.role==='architect'?{name:'plan.md',content:'Formater la déclaration.'}:body.role==='developer'?{name:'file-01.js',content:'const answer = 42;\n'}:{name:'review.json',content:'{"accept":true,"issues":[]}'};
+  await route.fulfill({json:{files:[file],plan:[],notes:''}});
+ });
+ await page.goto(base+'/autopilot.html');
+ await page.waitForFunction(()=>!document.querySelector('#start').disabled);
+ assert.match(await page.locator('#bridge-state').innerText(),/Configuration initiale requise/);
+ await page.locator('#consent').check();
+ await page.locator('#start').click();
+ const send=page.getByRole('button',{name:'Transmettre pour revue ChatGPT'});
+ await send.waitFor({state:'visible'});
+ await page.waitForFunction(()=>!document.querySelector('#start').disabled);
+ assert.deepEqual(roles,['innovator','architect','developer','critic']);
+ assert.equal(transfers.length,0);assert.equal(await send.isDisabled(),true);
+ await page.locator('#results label input').check();
+ assert.equal(await send.isDisabled(),true,'No transfer while inbox is unconfigured');
+ ready=true;
+ await page.locator('#bridge-refresh').click();
+ await page.waitForFunction(()=>document.querySelector('#bridge-state').textContent.includes('privée vérifiée')&&!document.querySelector('#bridge-refresh').disabled);
+ assert.equal(await send.isDisabled(),false);
+ await page.locator('#results label input').uncheck();
+ assert.equal(await send.isDisabled(),true);
+ await page.locator('#results label input').check();
+ await send.click();
+ await page.getByRole('link',{name:'Ticket privé #19'}).waitFor();
+ assert.equal(transfers.length,1);assert.equal(transfers[0].approved,true);
+ const p=transfers[0].proposal;assert.equal(p.repo,repo);assert.equal(p.commit,commit);assert.equal(p.publicationAuthorized,false);assert.equal(p.testsExecuted,false);assert.equal(p.changes[0].path,'app.js');assert.equal(p.changes[0].expectedBlob,blob);
+ assert.equal(await page.getByRole('link',{name:'Ticket privé #19'}).getAttribute('href'),'https://github.com/'+inbox+'/issues/19');
+ assert.equal(await send.isDisabled(),true);
+ assert.ok(await page.evaluate(()=>document.body.scrollWidth<=innerWidth+1),'Mobile overflow');
+ assert.deepEqual(errors,[]);
+ console.log('PASS Autopilot bridge: simulated public-source agents, private mailbox readiness, explicit review and single transfer; no real GitHub write');
+}finally{await browser.close();}

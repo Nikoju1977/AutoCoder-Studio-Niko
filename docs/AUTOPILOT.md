@@ -6,3 +6,7 @@
 - Reprise par curseur local ; propositions en mémoire, à exporter avant fermeture. Pas de service permanent, de cron ou d'exécution de code produit. Les dépôts privés ne sont pas accessibles.
 - Aucun push, aucune fusion ni promotion par le pilote. Comparer les changements, approuver explicitement l'export, puis soumettre les tests applicatifs et la revue GitHub. Les avis IA et contrôles statiques ne constituent pas une preuve de correction.
 - Aucun abonnement ajouté ; consommation éventuelle selon les quotas Agnes. Les tests de session et d'orchestration dans npm test utilisent des fixtures, jamais une clé réelle. Un test Agnes authentifié par le propriétaire reste nécessaire.
+
+## V2 — Revue privée
+
+La [passerelle GitHub privée](REVIEW-BRIDGE.md) permet la transmission d'une proposition approuvée sans export manuel. L'export JSON reste disponible. Aucun push ni fusion automatique.
