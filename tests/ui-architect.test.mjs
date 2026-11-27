@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {targetRepo,linkedStylesheet,loadPair,createVariant,comparisonBundle,authorizeVariant} from '../ui-architect.mjs';
+import {THEMES} from '../ui-theme.mjs';
+const html='<link rel="stylesheet" href="./style.css"><button id="play">Play</button>',css='body{margin:0}';
+const snapshot={repo:'Nikoju1977/Creative',branch:'main',commit:'a'.repeat(40),files:[{path:'index.html',size:html.length},{path:'style.css',size:css.length}]};
+const project={files:[{name:'file-01.html',content:html},{name:'file-02.css',content:css}],github:{repo:snapshot.repo,branch:'main',commit:snapshot.commit,mapping:[{path:'index.html',name:'file-01.html',sha:'b'.repeat(40)},{path:'style.css',name:'file-02.css',sha:'c'.repeat(40)}]}};
+test('restrict source owner and sensitive repositories',()=>{assert.equal(targetRepo('https://github.com/Nikoju1977/Creative'),snapshot.repo);assert.throws(()=>targetRepo('other/Creative'));assert.throws(()=>targetRepo('Nikoju1977/DiabCare'));});
+test('linked CSS pair and baseline verified',async()=>{assert.equal(linkedStylesheet(html,'index.html','style.css'),true);assert.equal(linkedStylesheet('<base href="/other/">'+html,'index.html','style.css'),false);assert.equal(linkedStylesheet(html,'sub/index.html','style.css'),false);assert.equal(await loadPair(snapshot,'index.html','style.css',{loadFiles:async()=>project}),project);});
+test('two variants only append CSS, preserve source SHA and require review',()=>{const a=createVariant(project,THEMES.audio),b=createVariant(project,THEMES.minimal);assert.equal(a.proposal.changes.length,1);assert.equal(a.proposal.changes[0].expectedBlob,'c'.repeat(40));assert.ok(a.proposal.changes[0].content.startsWith(css));assert.notEqual(a.proposal.changes[0].content,b.proposal.changes[0].content);assert.equal(comparisonBundle(a,b).format,'niko-ui-compare-v1');assert.throws(()=>authorizeVariant(a,false));assert.equal(authorizeVariant(a,true).publicationAuthorized,false);});
