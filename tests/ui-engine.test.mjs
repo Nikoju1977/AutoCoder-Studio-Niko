@@ -32,3 +32,11 @@ test('UI still uses four calls and requires review',async()=>{
  assert.equal(r.results[0].status,'review_required');
  assert.equal(r.results[0].proposal.testsExecuted,false);
 });
+
+import {chooseProfile} from '../ui-engine.mjs';
+test('automatic profile resolves locally with deterministic fallback',()=>{
+ assert.equal(chooseProfile({repo:'Nikoju1977/RAUSBEAT'}),'audio');
+ assert.equal(chooseProfile({repo:'Nikoju1977/Niko-3D-vibes'}),'spatial');
+ assert.equal(chooseProfile({repo:'Nikoju1977/unknown'}),'minimal');
+ assert.equal(cursorKey(CURSOR,'auto'),CURSOR+'-ui-auto');
+});

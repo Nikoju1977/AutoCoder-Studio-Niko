@@ -23,17 +23,23 @@ $('logout').onclick=async()=>{if(sessionBusy||controller||bridgeBusy)return;sess
 function render(){
  $('results').replaceChildren();bridgeControls=[];
  for(const entry of entries){
-  const el=document.createElement('section'),h=document.createElement('h3'),p=document.createElement('p');h.textContent=entry.repo;p.textContent=entry.status+(entry.reason?' — '+entry.reason:'')+' · tests applicatifs non exécutés';el.append(h,p);
+  const el=document.createElement('section'),h=document.createElement('h3'),p=document.createElement('p');h.textContent=entry.repo;p.textContent=(entry.profile&&entry.profile!=='general'?'Profil '+entry.profile+' · ':'')+entry.status+(entry.reason?' — '+entry.reason:'')+' · tests applicatifs non exécutés';el.append(h,p);
   if(entry.proposal){
    const details=document.createElement('details'),summary=document.createElement('summary');summary.textContent='Comparer '+entry.proposal.changes.length+' correction(s)';details.append(summary);
    for(const c of entry.proposal.changes){const heading=document.createElement('h4'),pre=document.createElement('pre');heading.textContent=c.path;pre.textContent='AVANT\n'+(entry.original.find(x=>x.path===c.path)?.content||'')+'\n\nAPRÈS\n'+c.content;details.append(heading,pre);}
+   let visual=null;
+   if(entry.profile&&entry.profile!=='general'&&entry.original.some(f=>/\.html$/i.test(f.path))){
+    visual=document.createElement('button');visual.disabled=true;visual.type='button';visual.textContent='Exporter dossier de preuve visuelle';
+    visual.onclick=()=>{if(!check.checked)return;const url=URL.createObjectURL(new Blob([JSON.stringify({format:'niko-ui-visual-v1',original:entry.original,proposal:entry.proposal},null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='niko-ui-visual.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),2000);};
+    el.append(visual);
+   }
    const label=document.createElement('label'),check=document.createElement('input'),btn=document.createElement('button'),send=document.createElement('button'),report=document.createElement('p');
    label.className='consent';check.type='checkbox';label.append(check,document.createTextNode(' J’ai examiné la proposition et j’autorise son export ou son transfert privé pour revue. Aucune publication autorisée.'));
    btn.type='button';btn.textContent='Exporter JSON (facultatif)';
    send.type='button';send.textContent='Transmettre pour revue ChatGPT';
    report.setAttribute('role','status');
    function showReceipt(){const receipt=receipts.get(entry);if(!receipt)return;const a=document.createElement('a');a.href=receipt.url;a.target='_blank';a.rel='noopener noreferrer';a.textContent='Ticket privé #'+receipt.number;report.replaceChildren(document.createTextNode('Proposition disponible pour revue : '),a);}
-   const sync=()=>{btn.disabled=!check.checked;send.disabled=!check.checked||!authenticated||!bridgeReady||Boolean(controller)||sessionBusy||bridgeBusy||receipts.has(entry);};
+   const sync=()=>{btn.disabled=!check.checked;if(visual)visual.disabled=!check.checked;send.disabled=!check.checked||!authenticated||!bridgeReady||Boolean(controller)||sessionBusy||bridgeBusy||receipts.has(entry);};
    bridgeControls.push(sync);check.onchange=sync;sync();showReceipt();
    btn.onclick=()=>{try{const data=approvedExport(entry,check.checked),url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='autopilot-proposition.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),2000);}catch(e){report.textContent=e.message;}};
    send.onclick=async()=>{
