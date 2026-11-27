@@ -31,7 +31,7 @@ export function uiBrief(mode){
  assertMode(mode);
  if(mode==='general')return '';
  if(mode==='auto')throw Error('Profil automatique non résolu');
- return 'Mission UI Engine Pro : '+UI_PROFILES[mode]+' Applique direction artistique, UX, responsive 320 à 1440 px, clavier, focus visible, contrastes WCAG AA visés, réduction du mouvement et performance. Pas de nouveau framework, CDN, dépendance, logique JS, collecte ni changement de sécurité. Préserve identifiants DOM, formulaires, attributs data, scripts, liens et fonctionnalités; privilégie le CSS. Propose des tests visuels et fonctionnels, sans prétendre les avoir exécutés. Préfère les tokens Studio Niko : '+JSON.stringify(UI_TOKENS)+'. ';
+ return 'Mission UI Engine Pro : '+UI_PROFILES[mode]+' Applique direction artistique, UX, responsive 320 à 1440 px, clavier, focus visible, contrastes WCAG AA visés, réduction du mouvement et performance. Pas de nouveau framework, CDN, dépendance, logique JS, collecte ni changement de sécurité. Vérifie la cohérence des tokens, des états et de la hiérarchie visuelle. Préserve identifiants DOM, formulaires, attributs data, scripts, liens et fonctionnalités; privilégie le CSS. Propose des tests visuels et fonctionnels, sans prétendre les avoir exécutés. Préfère les tokens Studio Niko : '+JSON.stringify(UI_TOKENS)+'. ';
 }
 // Conservative lexical guard, not an HTML parser or a security certification.
 function contracts(html){

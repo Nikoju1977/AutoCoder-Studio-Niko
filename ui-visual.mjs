@@ -4,6 +4,8 @@ import axe from 'axe-core';
 import {pixelDiff} from './ui-pixels.mjs';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
+// JavaScript engine enabled for trusted DevTools axe evaluation only; project scripts blocked by HTTP CSP and request routing.
+function deadline(p,ms){let timer;return Promise.race([p,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('Audit timeout')),ms);})]).finally(()=>clearTimeout(timer));}
 const ORIGIN='https://niko-visual.invalid';
 const pathOK=p=>typeof p==='string'&&p.length<=300&&/^[a-zA-Z0-9_./ -]+\.(html|css)$/i.test(p)&&!p.split('/').some(s=>!s||s==='.'||s==='..');
 export const VIEWPORTS=[{width:360,height:800},{width:768,height:1024},{width:1440,height:900}];
@@ -32,7 +34,7 @@ export function compareMetrics(before,after){
  return regressions;
 }
 async function capture(browser,files,entry,viewport,screenshot){
- const ctx=await browser.newContext({viewport,javaScriptEnabled:false,serviceWorkers:'block',acceptDownloads:false,reducedMotion:'reduce'});
+ const ctx=await browser.newContext({viewport,javaScriptEnabled:true,serviceWorkers:'block',acceptDownloads:false,reducedMotion:'reduce'});
  try{
   const blocked=new Set();
   await ctx.route('**/*',async route=>{
@@ -72,9 +74,9 @@ async function capture(browser,files,entry,viewport,screenshot){
   await page.screenshot({path:screenshot,animations:'disabled',timeout:10000});
   let accessibility={status:'unavailable'};
   try{
-   // DevTools evaluation injects only the pinned trusted audit library. Project scripts stay disabled.
-   await page.evaluate(axe.source);
-   const a=await page.evaluate(async()=>await window.axe.run(document,{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21a','wcag21aa']},resultTypes:['violations','incomplete','passes','inapplicable']}));
+   // DevTools evaluation injects only the pinned trusted audit library. Project scripts remain blocked by CSP.
+   await deadline(page.evaluate(axe.source),10000);
+   const a=await deadline(page.evaluate(async()=>await window.axe.run(document,{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21a','wcag21aa']},resultTypes:['violations','incomplete','passes','inapplicable']})),15000);
    accessibility={status:'measured',version:axe.version,violations:a.violations.map(v=>({id:v.id,impact:v.impact,nodes:v.nodes.length})),incomplete:a.incomplete.map(v=>({id:v.id,nodes:v.nodes.length})),passedRules:a.passes.length};
   }catch{accessibility={status:'unavailable',reason:'Injection ou audit axe-core non exécuté'};}
   return {...metrics,axe:accessibility,blockedResources:[...blocked]};
@@ -94,7 +96,7 @@ export async function auditVisual(bundle,out){
    const pixels=await pixelDiff(browser,join(out,b),join(out,a),join(out,diff));
    results.push({viewport,before:old,after:next,screenshots:{before:b,after:a,diff},pixels,regressions:compareMetrics(old,next)});
   }
-  const report={kind:'static-visual-proof',entry,fullApplicationTested:false,accessibilityCertified:false,axeComplete:results.every(r=>r.before.axe.status==='measured'&&r.after.axe.status==='measured'),publicationAuthorized:false,status:results.some(r=>r.regressions.length)?'regression_detected':'manual_review_required',results,limitations:['JavaScript désactivé','Ressources externes et fichiers non inclus bloqués','Contrôles de noms et tailles heuristiques; axe-core partiel, cas incomplets à revoir','Contrastes approximatifs sur fonds opaques simples uniquement; pas de test métier ni de performances runtime; taux de pixels modifiés ≠ qualité esthétique']};
+  const report={kind:'static-visual-proof',entry,fullApplicationTested:false,accessibilityCertified:false,axeComplete:results.every(r=>r.before.axe.status==='measured'&&r.after.axe.status==='measured'),publicationAuthorized:false,status:results.some(r=>r.regressions.length)?'regression_detected':'manual_review_required',results,limitations:['Scripts projet interdits par CSP et routage; JavaScript DevTools réservé à l’audit','Ressources externes et fichiers non inclus bloqués','Contrôles de noms et tailles heuristiques; axe-core partiel, cas incomplets à revoir','Contrastes approximatifs sur fonds opaques simples uniquement; pas de test métier ni de performances runtime; taux de pixels modifiés ≠ qualité esthétique']};
   await writeFile(join(out,'report.json'),JSON.stringify(report,null,2));
   return report;
  }finally{await browser.close();}

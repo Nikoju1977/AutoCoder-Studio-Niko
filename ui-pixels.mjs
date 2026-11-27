@@ -17,7 +17,7 @@ export async function pixelDiff(browser,before,after,output){
    c.drawImage(next,0,0);const y=c.getImageData(0,0,w,h);
    const d=c.createImageData(w,h);let changed=0,exact=0;
    for(let i=0;i<x.data.length;i+=4){
-    const distance=Math.max(...[0,1,2,3].map(k=>Math.abs(x.data[i+k]-y.data[i+k])));
+    const distance=Math.max(Math.abs(x.data[i]-y.data[i]),Math.abs(x.data[i+1]-y.data[i+1]),Math.abs(x.data[i+2]-y.data[i+2]),Math.abs(x.data[i+3]-y.data[i+3]));
     if(distance>0)exact++;
     if(distance>16){changed++;d.data.set([255,76,105,255],i);}
     else{const gray=Math.round((x.data[i]+x.data[i+1]+x.data[i+2])/9);d.data.set([gray,gray,gray,255],i);}
