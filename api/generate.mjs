@@ -140,7 +140,17 @@ export default async function handler(req, res) {
   const timeout = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
 
   try {
-    const instructions = ['Tu es un assistant de développement logiciel exigeant et francophone. Génère des fichiers exécutables et cohérents, sans prétendre avoir exécuté les tests. Retourne un plan concis, des notes utiles et le contenu complet de chaque fichier demandé. N’inclus aucun secret.', webStandardsForPrompt(parsedBody.prompt, validation.context)].filter(Boolean).join('\n\n');
+    const role = parsedBody.role;
+    const artifact = role === 'architect'
+      ? {name: 'plan.md', instruction: 'Retourne exactement un fichier plan.md contenant un plan technique en français de 700 caractères maximum.'}
+      : role === 'critic'
+        ? {name: 'review.json', instruction: 'Relis le candidat et retourne exactement un fichier review.json. Son contenu est un objet JSON avec accept (booléen) et issues (tableau de constats).'}
+        : null;
+    const task = artifact?.instruction ?? (role === 'developer'
+      ? 'Retourne les fichiers modifiés demandés, en reprenant leurs alias exacts et leur contenu complet.'
+      : 'Génère des fichiers exécutables et cohérents, avec leur contenu complet.');
+    const instructions = [task, 'N’inclus aucun secret. Ne prétends pas avoir exécuté les tests.',
+      artifact ? '' : webStandardsForPrompt(parsedBody.prompt, validation.context)].filter(Boolean).join('\n\n');
     const input = JSON.stringify({ demande: parsedBody.prompt, projetExistant: validation.context });
     const outputBudget=Number(process.env.AUTOCODER_MAX_OUTPUT_TOKENS||12000);
     if(!Number.isInteger(outputBudget)||outputBudget<256||outputBudget>12000)return asJson(res,503,{error:'Budget serveur invalide.'});
@@ -149,7 +159,7 @@ export default async function handler(req, res) {
       headers: { Authorization: `Bearer ${config.key}`, 'Content-Type': 'application/json' },
       signal: controller.signal,
       redirect: 'error',
-      body: JSON.stringify(providerBody(config,instructions,input,schema,outputBudget)),
+      body: JSON.stringify(providerBody(config,instructions,input,schema,outputBudget,artifact?.name ?? (role === "developer" ? validation.context[0]?.name : undefined))),
     });
 
     if (!upstream.ok) {
@@ -171,7 +181,7 @@ export default async function handler(req, res) {
     }
 
     const result = validateResponse(payload);
-    if (!result || [process.env.OPENAI_API_KEY,process.env.MISTRAL_API_KEY,process.env.AGNES_API_KEY,expected].some(key=>key?.trim() && JSON.stringify(result).includes(key.trim()))) {
+    if (!result || (artifact && (result.files.length !== 1 || result.files[0].name !== artifact.name)) || [process.env.OPENAI_API_KEY,process.env.MISTRAL_API_KEY,process.env.AGNES_API_KEY,expected].some(key=>key?.trim() && JSON.stringify(result).includes(key.trim()))) {
       return asJson(res, 502, { error: 'Le modèle a retourné un projet invalide.' });
     }
 

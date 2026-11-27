@@ -1,8 +1,68 @@
-# AutoCoder 2.0 — Studio Niko
+# AutoCoder 2.0 — Studio Niko Design
+
+**Browser-native development workspace · Local-first editor · Optional server-side AI**
+
+[![Source](https://img.shields.io/badge/source-public-blue)](https://github.com/Nikoju1977/AutoCoder-Studio-Niko) [![License](https://img.shields.io/badge/license-restricted-lightgrey)](LICENSE.md) [![Runtime](https://img.shields.io/badge/runtime-Python%20%2F%20WebAssembly-blue)](py-worker.js)
+
+[Application (URL de projet, disponibilité non vérifiée ici)](https://autocoder-studio-niko.vercel.app) · [Validation documentée](TESTS_VERIFIES.md) · [English overview](#english-overview) · [Portfolio](https://github.com/Nikoju1977)
+
+[![UI](https://img.shields.io/badge/UI-Vanilla_JS-F7DF1E)](app.js) [![Local](https://img.shields.io/badge/storage-local--first-00897B)](app.js)
+
+**STUDIO NIKO DESIGN** · Build smart. Stay lightweight. Create without limits.
+
+> [Insérer ici un GIF de démonstration / Insert demo GIF here]
+
+**Pourquoi ce projet ?** Réduire le coût d'entrée du développement : éditer, générer des modèles déterministes, exécuter Python et contrôler un aperçu web sans installer un IDE lourd. Le mode distant enrichit cette base mais n'est pas nécessaire à l'édition locale.
+
+## Vision & architecture
+
+Un atelier de développement qui privilégie le navigateur, la sobriété et le contrôle explicite des données. L'interface est en JavaScript natif sans framework de production ; Python nécessite Pyodide et les tests E2E utilisent Playwright. L'IA distante est facultative.
+
+| Couche | Responsabilité |
+| --- | --- |
+| [app.js](app.js) | Édition, modèles déterministes, état local, orchestration |
+| [py-worker.js](py-worker.js) | Exécution Python dans un Worker, interruption |
+| [preview.html](preview.html) | Prévisualisation HTML/CSS/JS |
+| [api/generate.mjs](api/generate.mjs) | Génération distante optionnelle, jeton serveur |
+| [web-guidance.js](web-guidance.js) | Analyse statique heuristique |
+| [sw.js](sw.js) | Cache de la coquille PWA |
+
+```mermaid
+flowchart TD
+    UI[Vanilla JS editor] --> Local[Local templates and storage]
+    UI --> Worker[Pyodide worker]
+    UI --> Preview[Sandboxed web preview]
+    UI -->|Optional authenticated request| API[Vercel API]
+    API --> Provider[LLM provider]
+```
+
+### Frontières de confiance et dépendances
+
+- `app.js` : état local, récupération et limites de fichiers ; aucun chiffrement du stockage n'est revendiqué.
+- `py-worker.js` : Pyodide 0.25.1 chargé depuis un CDN. Le Worker évite de bloquer directement le thread UI mais ne constitue pas une isolation de sécurité pour du code hostile.
+- `api/generate.mjs` : routage serveur vers OpenAI, Agnes AI ou Mistral, validation des entrées/sorties, jeton comparé avec `timingSafeEqual` après hachage ; ni authentification individuelle ni quota par utilisateur ne sont établis.
+- `package.json` : Playwright est une dépendance de développement, pas une dépendance de l'interface statique.
+- `studio-niko-core.js` : utilitaires locaux de stockage, JSON et diagnostic.
+
+Le parcours navigateur décrit ici utilise un seul appel de génération. [Code Mode Pro](docs/CODE_MODE_X.md) documente séparément les rôles d’agent, l’accès aux dépôts publics et les commandes de validation.
+
+## Statut des preuves
+
+La documentation de validation rapporte des contrôles historiques, dont une batterie Pyodide et 12 contrôles Node réussis sur une révision locale du 7 novembre 2026. Elle ne prouve pas la réussite de chaque révision actuelle. Aucun nouveau test d'exécution, benchmark, appel fournisseur ou test sur téléphone physique n'a été effectué pour cette révision documentaire.
+
+## Démarrage rapide
+
+```bash
+git clone https://github.com/Nikoju1977/AutoCoder-Studio-Niko.git
+cd AutoCoder-Studio-Niko
+python -m http.server 4173
+```
+
+L'utilisation et la redistribution restent soumises à [LICENSE.md](LICENSE.md).
 
 Application web statique/PWA en français, fondée sur le design d'AutoCoder. Aucun framework ni compilation requis.
 
-## Fonctions réellement implémentées
+## Fonctionnalités clés réellement implémentées
 
 - Editeur de code multifiche, téléchargement individuel, navigation et création/suppression de fichiers (`.py`, `.html`, `.css`, `.js`, `.md`, `.json`).
 - Sauvegarde automatique dans le `localStorage` du navigateur ; import et export d'un projet JSON.
@@ -43,11 +103,11 @@ La route `GET /api/status` indique uniquement si les variables nécessaires sont
 
 1. Déployer **le dossier complet** comme projet Vercel (pas uniquement `index.html`). Les pages statiques seront servies normalement et `api/generate.mjs` en fonction Node.
 2. Dans les paramètres d'environnement Vercel, définir :
-   - `OPENAI_API_KEY` : clé du fournisseur, **uniquement côté serveur**.
+   - `AGNES_API_KEY`, `OPENAI_API_KEY` ou `MISTRAL_API_KEY` : clé du fournisseur, **uniquement côté serveur**. Pour privilégier Agnes, définir `AUTOCODER_DEFAULT_PROVIDER=agnes`.
    - `AUTOCODER_ACCESS_TOKEN` : secret fort et aléatoire de 32 caractères ou plus (requis par l'API).
    - `OPENAI_MODEL` : facultatif, défaut `gpt-4.1-mini` ; vérifier que ce modèle est disponible sur le compte API.
 3. Redéployer le projet après ajout des variables.
-4. Dans l'interface, choisir « IA via API serveur protégée » et saisir **AUTOCODER_ACCESS_TOKEN**, jamais la clé OpenAI.
+4. Dans l'interface, choisir « IA via API serveur protégée » et saisir **AUTOCODER_ACCESS_TOKEN**, jamais la clé du fournisseur.
 
 Le jeton d'accès est gardé uniquement en mémoire de l'onglet : il doit être ressaisi après rechargement, fermeture ou changement d'appareil.
 
@@ -90,3 +150,31 @@ La page principale interdit l'intégration en iframe (`X-Frame-Options: DENY` et
 AutoCoder conserve désormais, si le stockage du navigateur le permet, une copie précédente des **fichiers de code et du nom du projet**. Dans les **Réglages**, la section repliable « Récupération de code après interruption » permet de la restaurer après confirmation ou de l'exporter en JSON. Les sauvegardes sont espacées pour limiter les écritures et une copie est tentée avant import, suppression de fichier ou génération. Les téléchargements disposent d'un lien manuel pendant environ cinq minutes.
 
 La copie n'inclut pas les jetons saisis dans les réglages, mais **conserve tout secret inscrit dans le code en clair**. Aucun stockage distant n'est créé. En cas de quota dépassé ou de purge Safari, la récupération peut échouer : conserve des exports JSON indépendants. Cette révision est enregistrée sur GitHub ; aucune validation de son fonctionnement sur iPhone n'est revendiquée. [Procédure complète](docs/RECUPERATION_PROJET.md).
+
+
+## Roadmap & contribution
+
+Propositions à valider (non terminées) :
+
+- [ ] Reproduire les tests Node et Pyodide sur le SHA publié.
+- [ ] Mesurer le temps de premier chargement et le temps de réponse du Worker.
+- [ ] Vérifier la récupération après fermeture et la PWA sur appareils physiques.
+- [ ] Tester la route IA avec configuration réelle et ajouter des quotas avant ouverture publique.
+
+**Première contribution / `good first issue` (label proposé, existence non vérifiée) :** Documenter un cas de récupération de projet ou une erreur de prévisualisation avec un exemple minimal reproductible.
+
+[Issues](https://github.com/Nikoju1977/AutoCoder-Studio-Niko/issues) · [Historique des commits](https://github.com/Nikoju1977/AutoCoder-Studio-Niko/commits/main/)
+
+## English overview
+
+AutoCoder is a browser-native development workspace with multi-file editing, local deterministic project templates, JSON import/export, recovery snapshots, Python execution through Pyodide and sandboxed web previews. It uses vanilla JavaScript; Python's first load requires a CDN. Optional server-side AI requires a configured provider API key and an access token configured on Vercel. The four pipeline stages are not four independent LLM agents. Local browser storage is not encrypted, and the worker is not a secure sandbox for hostile code.
+
+See the French instructions above for setup, configuration and limitations. Historical checks are documented in [TESTS_VERIFIES.md](TESTS_VERIFIES.md); current runtime and production availability are not established by this documentation update.
+
+Local-first is a design choice, not a claim of zero network access: Pyodide needs an initial download and optional server-side generation sends request context to the provider through the server. The UI uses no production framework. Suggested first contribution: reproduce a recovery or preview defect.
+
+## Contribution et droits / Contributions and rights
+
+Les signalements reproductibles sont bienvenus via les issues si elles sont activées : navigateur, version, étapes, résultat attendu et observé, sans secrets. Le dépôt est consultable publiquement mais **n'est pas sous licence open source** ; toute contribution, réutilisation ou redistribution doit respecter [LICENSE.md](LICENSE.md) et les licences des tiers.
+
+**Studio Niko Design** · Local-first when possible, evidence before claims.
