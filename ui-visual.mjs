@@ -21,6 +21,8 @@ export function compareMetrics(before,after){
  if(after.visibleControls<before.visibleControls)regressions.push('Nombre de commandes visibles réduit');
  if(after.unnamedControls>before.unnamedControls)regressions.push('Commandes sans nom apparent supplémentaires');
  if(after.smallControls>before.smallControls)regressions.push('Petites cibles supplémentaires');
+ if(after.lowContrast>before.lowContrast)regressions.push('Contrastes texte faibles supplémentaires (fonds simples)');
+ if(after.positiveTabindex>before.positiveTabindex)regressions.push('Ordres de tabulation positifs supplémentaires');
  return regressions;
 }
 async function capture(browser,files,entry,viewport,screenshot){
@@ -30,16 +32,36 @@ async function capture(browser,files,entry,viewport,screenshot){
   await ctx.route('**/*',async route=>{
    const u=new URL(route.request().url());let path='';
    try{path=decodeURIComponent(u.pathname.slice(1));}catch{}
-   if(u.origin!==ORIGIN||!files.has(path)||route.request().method()!=='GET'){blocked.add(u.origin===ORIGIN?'ressource locale non incluse':'ressource externe');return route.abort();}
+   if(u.origin!==ORIGIN||!files.has(path)||route.request().method()!=='GET'||!['document','stylesheet'].includes(route.request().resourceType())){blocked.add(u.origin===ORIGIN?'ressource locale non incluse':'ressource externe');return route.abort();}
    return route.fulfill({status:200,contentType:/\.css$/i.test(path)?'text/css; charset=utf-8':'text/html; charset=utf-8',headers:{'Content-Security-Policy':"default-src 'none'; style-src 'self' 'unsafe-inline'; img-src data:; font-src data:; script-src 'none'; connect-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'; object-src 'none'",'X-Content-Type-Options':'nosniff'},body:files.get(path)});
   });
   const page=await ctx.newPage();
   await page.goto(ORIGIN+'/'+entry.split('/').map(encodeURIComponent).join('/'),{waitUntil:'load',timeout:10000});
   const metrics=await page.evaluate(()=>{
    const controls=[...document.querySelectorAll('button,a[href],input:not([type=hidden]),select,textarea,[role=button]')];
-   const visible=controls.filter(el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el);return r.width>0&&r.height>0&&s.visibility==='visible'&&s.display!=='none'&&s.opacity!=='0';});
-   const named=el=>Boolean((el.getAttribute('aria-label')||el.getAttribute('aria-labelledby')||el.textContent||el.getAttribute('title')||el.getAttribute('alt')||[...el.labels||[]].map(l=>l.textContent).join(' ')).trim());
-   return {overflow:Math.max(0,document.documentElement.scrollWidth-innerWidth),visibleControls:visible.length,unnamedControls:visible.filter(e=>!named(e)).length,smallControls:visible.filter(e=>{const r=e.getBoundingClientRect();return r.width<24||r.height<24;}).length};
+   const visibleElement=el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el);if(r.width<=0||r.height<=0||s.visibility!=='visible'||s.display==='none')return false;for(let p=el;p;p=p.parentElement)if(Number(getComputedStyle(p).opacity)===0)return false;return true;};
+   const visible=controls.filter(visibleElement);
+   const named=el=>Boolean((el.getAttribute('aria-label')||((el.getAttribute('aria-labelledby')||'').split(/\s+/).map(id=>document.getElementById(id)?.textContent||'').join(' ').trim())||el.textContent?.trim()||el.getAttribute('title')||el.getAttribute('alt')||[...(el.labels||[])].map(l=>l.textContent).join(' ')).trim());
+   const small=el=>{const r=el.getBoundingClientRect();return r.width<24||r.height<24;};
+   const rgb=value=>{const m=/^rgb\(\s*(\d+(?:\.\d+)?),\s*(\d+(?:\.\d+)?),\s*(\d+(?:\.\d+)?)\s*\)$/.exec(value);return m?m.slice(1).map(Number):null;};
+   const luminance=c=>c.map(x=>{x/=255;return x<=.04045?x/12.92:((x+.055)/1.055)**2.4;}).reduce((a,x,i)=>a+x*[.2126,.7152,.0722][i],0);
+   const contrast=(a,b)=>{const x=luminance(a),y=luminance(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05);};
+   let lowContrast=0,contrastChecked=0,contrastUnknown=0;
+   for(const el of [...document.querySelectorAll('body *')].slice(0,2000)){
+    if(!visibleElement(el)||!Array.from(el.childNodes).some(n=>n.nodeType===3&&n.textContent.trim())||el.matches('script,style,svg,option'))continue;
+    const cs=getComputedStyle(el),fg=rgb(cs.color);let bg=null,unknown=!fg;
+    for(let p=el;p;p=p.parentElement){const st=getComputedStyle(p);
+     if(st.backgroundImage!=='none'||Number(st.opacity)!==1||st.filter!=='none'||st.mixBlendMode!=='normal'){unknown=true;break;}
+     const solid=rgb(st.backgroundColor);
+     if(!bg&&solid)bg=solid;
+     else if(!bg&&st.backgroundColor!=='rgba(0, 0, 0, 0)'){unknown=true;break;}
+    }
+    if(unknown||!bg){contrastUnknown++;continue;}
+    contrastChecked++;
+    const size=parseFloat(cs.fontSize),weight=parseInt(cs.fontWeight,10);
+    if(contrast(fg,bg)<(size>=24||(size>=18.67&&weight>=700)?3:4.5))lowContrast++;
+   }
+   return {overflow:Math.max(0,document.documentElement.scrollWidth-innerWidth,(document.body?.scrollWidth||0)-innerWidth,Math.ceil(document.body?.getBoundingClientRect().right||0)-innerWidth),visibleControls:visible.length,unnamedControls:visible.filter(e=>!named(e)).length,smallControls:visible.filter(small).length,smallButtons:visible.filter(e=>e.matches('button:not(:disabled)')&&small(e)).length,positiveTabindex:visible.filter(e=>e.tabIndex>0).length,lowContrast,contrastChecked,contrastUnknown};
   });
   await page.screenshot({path:screenshot,animations:'disabled',timeout:10000});
   return {...metrics,blockedResources:[...blocked]};
@@ -57,7 +79,7 @@ export async function auditVisual(bundle,out){
    const next=await capture(browser,after,entry,viewport,join(out,a));
    results.push({viewport,before:old,after:next,screenshots:{before:b,after:a},regressions:compareMetrics(old,next)});
   }
-  const report={kind:'static-visual-proof',entry,fullApplicationTested:false,accessibilityCertified:false,publicationAuthorized:false,status:results.some(r=>r.regressions.length)?'regression_detected':'manual_review_required',results,limitations:['JavaScript désactivé','Ressources externes et fichiers non inclus bloqués','Contrôles de noms et tailles heuristiques','Pas de test des fonctions, contrastes WCAG ou performances runtime']};
+  const report={kind:'static-visual-proof',entry,fullApplicationTested:false,accessibilityCertified:false,publicationAuthorized:false,status:results.some(r=>r.regressions.length)?'regression_detected':'manual_review_required',results,limitations:['JavaScript désactivé','Ressources externes et fichiers non inclus bloqués','Contrôles de noms et tailles heuristiques','Contrastes approximatifs sur fonds opaques simples uniquement; pas de test métier ni de performances runtime']};
   await writeFile(join(out,'report.json'),JSON.stringify(report,null,2));
   return report;
  }finally{await browser.close();}

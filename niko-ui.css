@@ -1,0 +1,21 @@
+/* Studio Niko Design — opt-in component library, scoped under .niko-ui */
+.niko-ui{--niko-bg:#0b1020;--niko-surface:#151e30;--niko-text:#edf3ff;--niko-muted:#bdc9df;--niko-accent:#a7f3d0;--niko-line:#455570;--niko-radius:12px;--niko-gap:16px;color-scheme:dark;font:1rem/1.5 system-ui,sans-serif;background:var(--niko-bg);color:var(--niko-text)}
+.niko-ui[data-theme="light"]{--niko-bg:#f2f5fa;--niko-surface:#fff;--niko-text:#16233a;--niko-muted:#46546b;--niko-accent:#075847;--niko-line:#728198;color-scheme:light}
+.niko-ui *{box-sizing:border-box}
+.niko-ui .niko-shell{max-width:72rem;margin:auto;padding:clamp(16px,4vw,48px)}
+.niko-ui .niko-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16rem),1fr));gap:var(--niko-gap)}
+.niko-ui .niko-card{min-width:0;background:var(--niko-surface);border:1px solid var(--niko-line);border-radius:var(--niko-radius);padding:24px;overflow-wrap:anywhere}
+.niko-ui .niko-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.niko-ui .niko-button,.niko-ui .niko-input{font:inherit;color:inherit;background:var(--niko-surface);border:1px solid var(--niko-line);border-radius:8px;padding:8px 12px;min-height:44px;max-width:100%}
+.niko-ui .niko-button{cursor:pointer;min-width:44px}
+.niko-ui .niko-button[disabled]{opacity:.6;cursor:not-allowed}
+.niko-ui .niko-primary{background:var(--niko-accent);color:var(--niko-bg);font-weight:700}
+.niko-ui .niko-input{display:block;width:100%}
+.niko-ui :focus-visible{outline:3px solid var(--niko-accent);outline-offset:3px}
+.niko-ui .niko-status{display:inline-block;border:1px solid var(--niko-line);border-radius:999px;padding:4px 12px;color:var(--niko-muted)}
+.niko-ui .niko-meter{width:100%;accent-color:var(--niko-accent)}
+.niko-ui .niko-timeline{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
+.niko-ui .niko-segment{min-height:44px;background:var(--niko-surface);border:1px solid var(--niko-line);color:inherit;border-radius:6px;overflow-wrap:anywhere}
+.niko-ui .niko-segment[aria-current="step"]{border:2px solid var(--niko-accent)}
+.niko-ui .niko-muted{color:var(--niko-muted)}
+@media(prefers-reduced-motion:reduce){.niko-ui *,.niko-ui *::before,.niko-ui *::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
