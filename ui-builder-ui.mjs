@@ -1,4 +1,5 @@
 import {TYPES,blank,history,decodeLayout,exportLayout,componentMarkup,ACTIONS,bindRuntime,applicationTemplate} from './ui-builder.mjs';
+import {generateLayout,pwaFiles,zipFiles} from './ui-app-factory.mjs';
 import {THEMES,cssVars} from './ui-theme.mjs';
 const $=id=>document.getElementById(id),KEY='niko-visual-builder-v1';
 let initial=blank();
@@ -64,6 +65,16 @@ $('undo').onclick=()=>{state.undo();render();};$('redo').onclick=()=>{state.redo
 $('device').onchange=()=>$('canvas').dataset.device=$('device').value;
 $('save').onclick=()=>{try{localStorage.setItem(KEY,JSON.stringify(state.value));$('status').textContent='Projet sauvegardé.';}catch{$('status').textContent='Stockage indisponible.';}};
 function download(name,value,type){const url=URL.createObjectURL(new Blob([value],{type})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),2000);}
+$('generate-prompt').onclick=async()=>{
+ if(!$('prompt-consent').checked)return;
+ $('generate-prompt').disabled=true;$('prompt-consent').disabled=true;
+ try{const candidate=await generateLayout($('prompt').value,{approved:true,signal:AbortSignal.timeout(65000)});
+  if(state.value.items.length&&!confirm('Remplacer la composition actuelle par la proposition IA ?'))return;
+  testMode=false;state.replace(candidate);selected=null;render();$('status').textContent='Composition IA importée. Vérifier les liaisons et tester avant export.';
+ }catch(e){$('status').textContent=String(e.message||e).slice(0,200);}
+ finally{$('generate-prompt').disabled=false;$('prompt-consent').disabled=false;$('prompt-consent').checked=false;}
+};
+$('export-pwa').onclick=()=>{try{download('niko-app-pwa.zip',zipFiles(pwaFiles(state.value,{persistent:$('persist-lists').checked})),'application/zip');$('status').textContent='Archive PWA préparée. Extraire et servir via HTTPS ou localhost.';}catch(e){$('status').textContent=e.message;}};
 $('export-json').onclick=()=>download('niko-layout.json',JSON.stringify(state.value,null,2),'application/json');
 $('export-html').onclick=()=>download('index.html',exportLayout(state.value).html,'text/html');
 $('export-js').onclick=()=>download('app.js',exportLayout(state.value).js,'text/javascript');
