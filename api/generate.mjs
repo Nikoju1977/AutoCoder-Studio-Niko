@@ -1,5 +1,6 @@
 /** Optional AI generation endpoint for Vercel (Node.js runtime). */
 import { createHash, timingSafeEqual } from 'node:crypto';
+import { verified, sameOrigin } from '../server-session.mjs';
 import { webStandardsForPrompt } from './web-standards.mjs';
 import { availableProviders, selectProvider, knownProvider, knownRole, providerBody, extractText } from './providers.mjs';
 
@@ -109,7 +110,9 @@ export default async function handler(req, res) {
   }
 
   const authorization = typeof req.headers?.authorization === 'string' ? req.headers.authorization : '';
-  if (!authorization.startsWith('Bearer ') || !safeToken(authorization.slice(7), expected)) {
+  const bearerOK = authorization.startsWith('Bearer ') && safeToken(authorization.slice(7), expected);
+  const sessionOK = !authorization && sameOrigin(req) && /^application\/json(?:\s*;|$)/i.test(req.headers?.['content-type']||'') && verified(req,expected);
+  if (!bearerOK && !sessionOK) {
     return asJson(res, 401, { error: 'Jeton d’accès invalide.' });
   }
 
@@ -134,7 +137,7 @@ export default async function handler(req, res) {
       (parsedBody.role !== undefined && !knownRole(parsedBody.role))) {
     return asJson(res, 400, { error: 'Fournisseur ou rôle invalide.' });
   }
-  const config = selectProvider(parsedBody);
+  const config = selectProvider(sessionOK ? {...parsedBody, provider:'agnes'} : parsedBody);
   if (!config) return asJson(res, 503, { error: 'Fournisseur IA non configuré.' });
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
@@ -161,7 +164,7 @@ export default async function handler(req, res) {
       headers: { Authorization: `Bearer ${config.key}`, 'Content-Type': 'application/json' },
       signal: controller.signal,
       redirect: 'error',
-      body: JSON.stringify(providerBody(config,instructions,input,schema,outputBudget,artifact?.name ?? (role === "developer" ? validation.context[0]?.name : undefined))),
+      body: JSON.stringify(providerBody(config,instructions,input,schema,sessionOK ? Math.min(outputBudget,4096) : outputBudget,artifact?.name ?? (role === "developer" ? validation.context[0]?.name : undefined))),
     });
 
     if (!upstream.ok) {
