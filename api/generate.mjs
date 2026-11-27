@@ -141,7 +141,9 @@ export default async function handler(req, res) {
 
   try {
     const role = parsedBody.role;
-    const artifact = role === 'architect'
+    const artifact = role === 'innovator'
+      ? {name: 'ideas.json', instruction: 'Retourne exactement un fichier ideas.json contenant une à trois options, chacune avec title, benefit, effort (low, medium ou high) et test.'}
+      : role === 'architect'
       ? {name: 'plan.md', instruction: 'Retourne exactement un fichier plan.md contenant un plan technique en français de 700 caractères maximum.'}
       : role === 'critic'
         ? {name: 'review.json', instruction: 'Relis le candidat et retourne exactement un fichier review.json. Son contenu est un objet JSON avec accept (booléen) et issues (tableau de constats).'}

@@ -159,3 +159,13 @@ Le transport utilise le fournisseur configuré, jusqu’à trois appels potentie
 Le candidat reste limité aux fichiers sélectionnés et subit les vérifications statiques.
 La commande crée un `spec.json` local compatible avec `regression-publish.mjs`.
 L’exécution du test et la création de la PR brouillon utilisent l’approbation V27 séparée.
+
+### Agent innovateur facultatif
+
+Dans le fichier de mission V28, ajouter `"innovation": true` sous `mission`.
+L’innovateur propose jusqu’à trois options avec bénéfice, effort et test concret.
+L’architecte évalue ces options dans le périmètre approuvé. L’exécution utilise au
+maximum quatre appels au fournisseur et conserve le scénario de validation local.
+Le rapport CLI expose les options. La comparaison fonctionnelle et la publication
+conservent l’approbation séparée. Le serveur accepte le réglage facultatif
+`AUTOCODER_INNOVATOR_PROVIDER` pour choisir le fournisseur de ce rôle.
