@@ -79,5 +79,10 @@
         }
       ]
     }
-  ]
+  ],
+  "functions": {
+    "api/review-bridge.mjs": {
+      "maxDuration": 60
+    }
+  }
 }
