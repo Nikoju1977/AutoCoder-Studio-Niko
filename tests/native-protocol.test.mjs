@@ -1,0 +1,13 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,writeFile,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {createGateway,createClient,PROTOCOL} from '../native-protocol.mjs';
+import {localClient} from '../sdk/client.mjs';
+const project={name:'demo',files:[{name:'config.json',content:'{'}]};
+test('local SDK discovers and invokes tools, forbids network and write',async()=>{const gateway=createGateway({project,app:'studio-test'});const client=createClient(r=>gateway.dispatch(r));assert.equal((await client.list()).tools.length,3);assert.match(JSON.stringify(await client.call('project.audit')),/JSON_INVALID/);await assert.rejects(client.call('github.catalog',{owner:'Niko',page:1}),/TOOL_DENIED/);await assert.rejects(client.call('shell.exec'),/TOOL_DENIED/);});
+test('invalid envelope and response correlation refused',async()=>{const g=createGateway({project});assert.equal((await g.dispatch({protocol:'other',id:'a',method:'tools.list',params:{}})).error.code,'INVALID_REQUEST');await assert.rejects(createClient(async()=>({protocol:PROTOCOL,id:'wrong',ok:true})).list(),/Invalid response/);});
+test('explicit simulation permission only',async()=>{const g=createGateway({permissions:['quantum.compute']});const c=createClient(r=>g.dispatch(r));assert.equal((await c.list()).tools.length,1);const r=await c.call('quantum.simulate',{circuit:'{"qubits":1,"gates":[]}'});assert.equal(r.mode,'ideal_classical_statevector');assert.throws(()=>createGateway({permissions:['github.public.read']}));});
+test('node client talks to actual subprocess',async()=>{const dir=await mkdtemp(join(tmpdir(),'cmx-sdk-'));try{const path=join(dir,'p.json');await writeFile(path,JSON.stringify({projectName:'demo',files:{'config.json':'{'}}));const c=localClient({gateway:fileURLToPath(new URL('../scripts/gateway.mjs',import.meta.url)),app:'test',project:path});assert.equal((await c.list()).tools.length,3);assert.match(JSON.stringify(await c.call('project.audit')),/JSON_INVALID/);}finally{await rm(dir,{recursive:true,force:true});}});

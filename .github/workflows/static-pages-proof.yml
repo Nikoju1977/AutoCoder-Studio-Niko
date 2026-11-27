@@ -1,0 +1,31 @@
+name: Code Mode Pro static Pages integrity
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/static-pages-proof.mjs'
+      - 'tests/static-pages-targets.json'
+      - 'tests/static-pages-proof.test.mjs'
+      - '.github/workflows/static-pages-proof.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Validate comparison logic
+        run: node --test tests/static-pages-proof.test.mjs
+      - name: Compare immutable public Git files with deployed bytes
+        run: node scripts/static-pages-proof.mjs
+      - name: Keep metadata-only report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: static-pages-proof
+          path: static-pages-proof.json
+          if-no-files-found: warn

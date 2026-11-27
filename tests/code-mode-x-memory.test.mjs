@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {makeRecord,readMemory,writeMemory,forProject,selectLessons} from '../code-mode-x-memory.mjs';
+const a={name:'audio',github:{repo:'Niko/Audio',commit:'a'.repeat(40)}},b={name:'video'};
+const storage=()=>{const m=new Map();return {getItem:k=>m.get(k)||null,setItem:(k,v)=>m.set(k,v)};};
+const record=(p,kind,note,evidence='')=>makeRecord(p,{kind,note,evidence,id:note,at:'2026-11-25T00:00:00Z'});
+test('project memory isolated and round trips',()=>{const s=storage(),rows=[record(a,'observed','audio bug'),record(b,'failed','video bug')];writeMemory(s,rows);assert.deepEqual(readMemory(s),rows);assert.equal(forProject(rows,a).length,1);});
+test('confirmed lesson requires declared evidence; secrets blocked',()=>{assert.throws(()=>record(a,'user_confirmed','audio fix'));assert.throws(()=>record(a,'observed','-----BEGIN PRIVATE KEY-----'));});
+test('only relevant confirmed lessons sent, never failures or other project',()=>{const rows=[record(a,'user_confirmed','audio buffer','test manuel OK'),record(a,'failed','audio crash'),record(b,'user_confirmed','audio other','test'),record(a,'user_confirmed','image','test')];const lessons=selectLessons(rows,a,'audio buffer');assert.equal(lessons.length,1);assert.equal(lessons[0].note,'audio buffer');assert.deepEqual(selectLessons(rows,a,'audio',{budget:1}),[]);});
+test('reject oversized storage rather than silently erase',()=>{const s=storage(),r=record(a,'observed','audio');assert.throws(()=>writeMemory(s,Array(151).fill(r)));});

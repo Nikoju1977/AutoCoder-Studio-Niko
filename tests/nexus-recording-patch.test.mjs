@@ -1,0 +1,1 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {patchRecording} from '../scripts/nexus-recording-patch.mjs';test('Nexus repair refuses unknown source',()=>assert.throws(()=>patchRecording('unverified'),/source changed/));

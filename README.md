@@ -44,7 +44,7 @@ flowchart TD
 - `package.json` : Playwright est une dépendance de développement, pas une dépendance de l'interface statique.
 - `studio-niko-core.js` : utilitaires locaux de stockage, JSON et diagnostic.
 
-Aucun moteur quantique, fournisseur Mistral/Agnes, accès automatique aux dépôts ou agent LLM indépendant n'est revendiqué pour les sources inspectées.
+Le parcours navigateur décrit ici utilise un seul appel de génération. [Code Mode Pro](docs/CODE_MODE_X.md) documente séparément les rôles d’agent, l’accès aux dépôts publics et les commandes de validation.
 
 ## Statut des preuves
 

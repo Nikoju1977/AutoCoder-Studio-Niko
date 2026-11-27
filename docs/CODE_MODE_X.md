@@ -1,0 +1,161 @@
+# Code Mode X — V1.0
+Studio Niko Design. Extension indépendante d'AutoCoder; aucune modification de l'interface ou de l'API existantes.
+
+## Utilisation
+`node scripts/code-mode-x.mjs projet.json` : audit en lecture seule d'un export contenant un tableau files (name/content). Code retour 0 : contrôles statiques sans erreur; 1 : erreurs ou blocage; 2 : entrée invalide.
+`npm test` : inclut les tests de l'orchestrateur.
+
+## Moteur
+Importer runCodeMode depuis code-mode-x.mjs. Passer prompt, files et éventuellement un adaptateur generate({prompt,files,feedback,signal}) renvoyant {files}. Sans adaptateur, seul l'audit local fonctionne. Avec adaptateur, deux tentatives par défaut (maximum trois), fusion non destructive, audit et proposition à approuver. Aucun fichier n'est écrit, exécuté ni publié. Les erreurs ne divulguent pas le contenu des fichiers. L'appelant doit appliquer son propre délai à l'adaptateur et respecter le signal d'annulation.
+
+Les contrôles JSON, noms de fichiers et motifs de secrets ou d'exécution dynamique sont partiels, non une preuve de sécurité ni une validation de syntaxe JS/Python. Une proposition review_required nécessite une revue et des tests réels. L'interface, les tests en environnement isolé, GitHub et Vercel automatiques restent à intégrer. Les droits d'auteur et conditions de LICENSE.md restent inchangés.
+
+## V2 — équipe agentique
+Le module code-mode-x-team.mjs orchestre les rôles architecte, développeur et critique, en appels séquentiels à la même API protégée. Le critique est une opinion de modèle, non une preuve d'indépendance, de sécurité ou de réussite des tests. Les modifications restent des propositions. Les limites du serveur sont respectées sans tronquer silencieusement le contexte : 12 fichiers, 12 000 caractères par fichier, 80 000 octets de requête, 4 000 caractères de prompt. Au maximum sept appels par exécution, deux tentatives par défaut, délai HTTP de 65 secondes par appel.
+L'export AutoCoder natif (files objet) et le tableau name/content sont acceptés.
+Audit gratuit hors ligne : node scripts/code-mode-x.mjs projet.json
+Équipe IA : définir AUTOCODER_ACCESS_TOKEN dans l'environnement, puis node scripts/code-mode-x.mjs projet.json --team "Améliorer la gestion des erreurs".
+Le mode --team transmet explicitement le contexte au serveur et à son fournisseur IA ; le jeton reste hors des fichiers. Ne pas y envoyer de secrets. Les appels peuvent être facturés par le fournisseur, l'accès API et ses quotas ne sont pas garantis. Aucun accès réseau n'est requis pour les tests avec transport simulé. Aucun déploiement ni exécution du code généré. Interface graphique à intégrer.
+
+## V3 — fournisseurs supplémentaires
+OpenAI est conservé. Deux clés serveur facultatives : MISTRAL_API_KEY et AGNES_API_KEY. Modèles modifiables via MISTRAL_MODEL (mistral-small-latest) et AGNES_MODEL (agnes-2.5-flash).
+Dans Vercel > projet > Settings > Environment Variables, saisir les clés comme variables sensibles et conserver AUTOCODER_ACCESS_TOKEN (32 caractères minimum). Redéployer la branche après configuration. Aucune clé dans le dépôt ni dans le navigateur.
+AUTOCODER_DEFAULT_PROVIDER permet de choisir openai, mistral ou agnes. Sans choix, le premier configuré est utilisé dans cet ordre. Le client peut spécifier provider et role dans POST /api/generate. Les variables AUTOCODER_ARCHITECT_PROVIDER, AUTOCODER_DEVELOPER_PROVIDER et AUTOCODER_CRITIC_PROVIDER permettent une répartition indépendante. Pas de basculement automatique vers un tiers en cas d'erreur : éviter des coûts et transferts de code inattendus. Aucun appel réel sans clés configurées.
+Sources : https://docs.mistral.ai/api/endpoint/chat ; https://github.com/AgnesAI-Labs/AgnesAI-Models/blob/main/MODEL_CATALOG.md .
+
+## V4 — Software Factory (Git local)
+Cloner un dépôt avec Git puis lancer depuis AutoCoder : node scripts/factory.mjs chemin-du-clone .
+Le moteur lit le commit HEAD via ls-tree et cat-file, sans lancer ni modifier le code du dépôt. Les fichiers non suivis et changements non commités sont ignorés. L'inventaire distingue fichiers inspectés, exclus, non réguliers et limites de budget. Les motifs détectés sont heuristiques.
+Mémoire locale explicite : node scripts/factory.mjs chemin-du-clone --remember identifiant journal.jsonl . Choisir un journal privé hors dépôt. Il contient les chemins, constats et commit, pas le code source. L'empreinte SHA-256 n'est pas une signature.
+API Node : readSnapshot, prepareContext (sélection manuelle de 1 à 12 fichiers, alias compatibles avec le moteur V2), prepareChanges (proposition associée au SHA du blob d'origine). Les alias doivent être expliqués au modèle si nécessaire; aucun patch appliqué automatiquement et aucun test du projet cible exécuté. Pas encore de synchronisation GitHub automatisée, ni d'interface, ni d'apprentissage automatique. Les secrets peuvent échapper à la détection; ne transmettre que des fichiers explicitement autorisés.
+
+## V5 — Interface de pilotage
+Ouvrir code-mode-x.html depuis AutoCoder. Importer un export JSON ou charger le projet local existant, auditer sans réseau, choisir les fournisseurs et lancer une mission après consentement. Comparaison côte à côte et export JSON compatible AutoCoder, aucun écrasement automatique. Le jeton AutoCoder n'est pas persisté, les clés fournisseur restent dans Vercel. Les limites de contexte V2 restent en vigueur. La page ne donne pas accès au terminal Git local de V4 : ce module reste en CLI Node. La disponibilité affichée est une configuration déclarée par le serveur, pas une vérification de clé. Le cache PWA inclut la nouvelle page après installation du service worker AutoCoder.
+
+## V6 — GitHub public en lecture seule
+Depuis Code Mode X, saisir propriétaire/dépôt, lister puis sélectionner 1 à 12 fichiers. Les appels sont directs à api.github.com, sans authentification, et soumis aux quotas publics. Le commit de la branche par défaut et les SHA des blobs sont conservés. L'inventaire peut être partiel; seuls les fichiers texte admissibles de 12 Ko maximum sont proposés. Les fichiers mjs/cjs sont aliasés en js pour l'API existante. Le JSON de proposition GitHub est distinct de l'export AutoCoder; il contient le commit, les chemins et SHA attendus, sans écriture ni PR automatique. Revue et tests nécessaires. Les fichiers privés, les secrets potentiels et les chemins exclus ne sont pas chargés. La détection des secrets est partielle. Les tests réseau simulés ne prouvent pas la disponibilité GitHub en production.
+
+## V7 — AutoLearning local
+Après avoir chargé un projet, enregistrer une observation, un échec ou une solution confirmée par l'utilisateur (preuve déclarée obligatoire). Les notes sont conservées dans localStorage, limitées à 150, séparées par dépôt GitHub ou nom de projet local. Les projets locaux homonymes partagent les notes; pas de synchronisation, pas de sauvegarde garantie. Effacement par projet avec confirmation. Cocher explicitement la réutilisation pour joindre aux missions IA jusqu'à trois leçons confirmées pertinentes (recoupement lexical, budget de caractères). Les notes sont des données non vérifiées, non des instructions. Aucun réentraînement de modèle, aucune validation indépendante, aucun stockage automatique du code ou des clés. Ne jamais mettre de secrets dans les notes.
+
+## V8 — AutoEvolution : revue assistée
+Le raccourci ouvre le dépôt public AutoCoder sur la branche feature/code-mode-x-v1. Sélectionner manuellement les fichiers admissibles, puis établir une feuille de route locale. Les constats heuristiques sont regroupés et les recommandations de tests sont distinguées des faits observés. Une mission peut être préparée dans le champ existant, sans lancer le réseau ni modifier le code. Tout secret potentiel bloque la préparation IA. Les propositions restent soumises à consentement, revue et tests. Aucune auto-modification, modification des permissions, fusion ou publication automatique. Le raccourci dépend de l'existence de la branche et les limites de contexte précédentes restent applicables. Aucun changement du modèle IA lui-même.
+
+## V9 — Industrialisation
+Le budget de mission propose une ou deux tentatives (3 ou 5 appels maximum). Le plafond serveur AUTOCODER_MAX_OUTPUT_TOKENS est facultatif (256 à 12000, défaut 12000). Ce ne sont pas des quotas globaux ni des plafonds monétaires. Le test navigateur tests/code-mode-x-e2e.mjs couvre l'import, l'audit, la mémoire, la feuille de route, le consentement, le parcours IA simulé et l'export sur viewport mobile. Il ne contacte pas les fournisseurs IA réels. Une prévisualisation Vercel READY ne prouve pas que les fonctionnalités sont testées. Ne promouvoir qu'après vérification des CI et du déploiement.
+
+## V10 — Master Control
+Le catalogue charge les dépôts publics non archivés d'un compte GitHub, par pages de 100 (maximum 20 pages, quota public). Recherche locale et ouverture d'un projet vers l'explorateur V6. Le suivi local conserve au plus 200 événements (sélection, audit statique, proposition) associés au commit; aucune clé ni code source. L'effacement est explicite. Les tests, déploiements et la stabilité ne sont pas déduits de ces événements. Aucun accès privé, push ou scan global automatique.
+
+## V11 — AutoMaintenance
+File locale de 100 interventions maximum, priorités P0–P3, liée au dépôt et au commit exact. Ajouter manuellement ou depuis AutoEvolution. Préparer une mission ne lance aucun appel IA; un commit différent exige une nouvelle intervention. Les états sont déclarés par l'utilisateur, et la validation exige une référence de preuve. Le nom de branche suggéré n'est pas une branche créée. Aucun push, fusion, exécution automatique ni planification en arrière-plan. Les notes et missions sont stockées localement en clair : ne pas y saisir de secrets.
+
+## V12 — Code Mode Pro / AutoPublish
+Le module Node code-mode-x-publish.mjs et scripts/publish.mjs publient uniquement des propositions V12 exportées depuis GitHub (branche d'origine incluse). Depuis un clone AutoCoder avec Node 20+, configurer CMX_GITHUB_TOKEN en variable d'environnement locale, via un jeton GitHub à portée fine limité aux dépôts nécessaires, Contents lecture/écriture et Pull requests lecture/écriture. Ne pas enregistrer le jeton dans les fichiers ni le navigateur. Le périmètre est limité aux dépôts publics Nikoju1977, fichiers existants et chemins autorisés; workflows, fichiers cachés et certaines configurations sont exclus. Le contrôle n'est pas un audit de sécurité complet : du code applicatif peut déclencher des CI, donc examiner les modifications et protéger les secrets CI avant publication.
+1. node scripts/publish.mjs proposition.json : inspecte sans écrire, affiche le SHA-256.
+2. Après revue du JSON complet et consentement, node scripts/publish.mjs proposition.json --publish SHA256_AFFICHE : vérifie de nouveau la source, crée un commit et une branche neuve, puis une PR brouillon. Aucun merge, force push ou suppression. Si la PR échoue, le nom de la branche créée est renvoyé; vérifier GitHub avant de réessayer. Si une requête réseau échoue de façon ambiguë, contrôler les branches distantes. Le SHA-256 identifie le contenu approuvé, ce n'est pas une signature. Les tests simulés ne prouvent pas les autorisations réelles. La publication n'est pas disponible directement depuis le navigateur; les clés IA restent côté Vercel.
+
+## V13 — Native Tool Bus
+Registre JSON de cinq outils : project.audit, project.roadmap, project.inventory, github.snapshot, github.catalog. Les outils déclarent un schéma d'entrée et une permission; les appels inconnus, arguments supplémentaires, réseau non autorisé et dépassements de budget sont refusés. L'interface utilise ce registre pour les audits, feuilles de route et lectures GitHub. CLI : node scripts/tools.mjs list ; node scripts/tools.mjs call project.audit '{}' projet.json ; node scripts/tools.mjs call github.catalog '{"owner":"Nikoju1977","page":1}' - --allow-public-network . Chaque commande est explicite. Pas de serveur MCP ni d'exécution arbitraire; les agents IA ne sélectionnent pas encore dynamiquement les outils, et les connecteurs externes non implémentés ne sont pas remplacés. AutoPublish V12 reste séparé et soumis à approbation.
+
+## V14 — sélection dynamique d’outils natifs
+Option désactivée par défaut. L'architecte reçoit la mission et le catalogue des trois outils locaux, sans fichiers source lors de cette sélection, et répond avec tools.json. La sélection est strictement validée; aucun outil réseau ou d'écriture n'est autorisé dans cette boucle. Au maximum trois outils locaux et un appel IA additionnel; les résultats synthétiques sont joints à la mission après consentement. Les budgets de 3/5 appels passent à 4/6 si l'option est activée. Le mode ne change pas les permissions de publication V12. Tests unitaires et parcours navigateur avec fournisseur simulé, pas de preuve de fonctionnement des véritables fournisseurs. Pas de compatibilité MCP générale.
+
+## V15 — Quantum Edition et connecteurs REST
+Le module original quantum-core.mjs est publié sous MIT (LICENSE.quantum), sans changement de licence des autres fichiers. Simulation classique idéale par vecteur d’état, 1–12 qubits, 128 portes; H X Y Z S T RX RY RZ CX CZ SWAP. Les rotations sont en radians, q0 à droite. Affichage de 32 états non nuls au maximum et masse omise. Pas de bruit, de matériel quantique ni d'accélération IA démontrée. Connecteurs déclaratifs de lecture github.repository et autocoder.status, sans authentification, origine fixe et réponse bornée. Les nouvelles permissions quantum.compute et connector.public.read sont distinctes et ne sont pas offertes au planificateur V14. Les connecteurs sont définis dans le code, pas encore importables ni configurables arbitrairement. Tests analytiques et réseau simulé. Les guides GoogleChrome CLI n'ont pas été exécutés dans cette session de modification via GitHub.
+
+## V16 — Quantum Hardware (IBM QPU)
+Le pont Python original quantum_hardware.py (MIT, LICENSE.quantum) utilise Qiskit et IBM Quantum Runtime, sans simulateur ni bascule automatique. Installer dans un environnement virtuel Python : python -m pip install -r requirements-quantum.txt . Créer un compte IBM Quantum Open Plan et configurer IBM_QUANTUM_API_KEY en variable locale (jamais dans GitHub ou le navigateur). Le client filtre les instances open et vérifie le plan actif avant soumission. Le circuit est limité à 32 qubits, 128 portes et 1024 shots par job. Commandes : python quantum_hardware.py backends ; python quantum_hardware.py prepare circuit.json --shots 256 ; après revue, python quantum_hardware.py submit circuit.json --shots 256 --approve SHA256 ; python quantum_hardware.py result JOB_ID . La préparation ne consomme aucun quota QPU. La soumission consomme le quota et n'est jamais répétée automatiquement. En cas d'erreur réseau vérifier les jobs IBM avant de réessayer. La récupération renvoie les mesures uniquement pour un job DONE et un backend non simulateur. Les tests CI utilisent des doubles, aucun matériel physique ni accès IBM n'est testé sans compte. La PWA exporte le circuit, le pont reste un CLI local. Aucune accélération de l'IA démontrée. Docs : https://quantum.cloud.ibm.com/docs/en/api/qiskit-ibm-runtime/qiskit-runtime-service et https://quantum.cloud.ibm.com/docs/en/ibm-quantum-platform/plans-overview .
+
+## V17 — Classical Compute Engine
+Moteur JavaScript classique indépendant de Qiskit et des IA. Graphe orienté acyclique de 1–20 tâches, priorités P0–P3 et chemin critique estimé. Exécution séquentielle des trois outils project.read, sans réseau ni shell; propagation des échecs et annulation entre tâches. L’optimiseur exact de sac à dos 0/1 maximise une valeur entière pour des options indépendantes (100 options, budget 10000 unités). Il ne résout pas un planning avec dépendances et coûts simultanément. Les estimations ne sont pas des mesures; les durées d'exécution sont mesurées localement. Les audits ne remplacent pas les tests du projet. L’interface inclut un éditeur JSON et des contrôles. Licence du dépôt inchangée. Tests unitaires et navigateur ajoutés; la CLI Modern Web Guidance n'a pas été exécutée dans cette session GitHub.
+
+## V18 — Hybrid Intelligence Engine
+Le routeur déterministe sélectionne quatre routes à partir du type de mission choisi : audit CPU, optimisation CPU, précontrôle CPU puis IA, préparation matérielle QPU. Les deux premières s'exécutent localement. Le développement exécute un précontrôle et construit une synthèse compacte, sans envoyer le projet automatiquement. Le bouton d'étape suivante remplit le formulaire IA, exige toujours le consentement et le lancement séparé. Le QPU valide le circuit (32 qubits, 128 portes, 1024 shots) et exporte le JSON pour le CLI V16; aucun job ni simulateur n'est lancé. Politique locale par défaut, budgets IA calculés selon tentatives et option outils; aucune garantie monétaire globale. Les changements de projet ou de paramètres invalident la préparation. Aucun résultat physique ou gain quantique revendiqué. Tests unitaires et navigateur simulé ajoutés. CLI Modern Web Guidance non exécutée dans cette session GitHub.
+
+## V19 — Universal Developer SDK
+Protocole studio-niko-tools/1, SDK Node et Python, passerelle stdin/stdout locale et transport in-process. Voir docs/NATIVE_PROTOCOL.md. Permissions choisies par l’opérateur au lancement; l’identité app est déclarative, non authentifiée. Trois outils projet, simulation facultative, aucun accès réseau, QPU physique, publication ou shell distant. Les SDK ne sont pas encore publiés sur npm/PyPI. Tests de processus réels ajoutés. CLI Modern Web Guidance non exécutée dans cette session GitHub.
+
+## V20 — Universal Infrastructure
+Passerelle HTTP loopback avec jetons indépendants par application, droits locaux et limites de ressources. SDK HTTP Node, adaptateur MCP stdio legacy 2025-06-18 facultatif. Documentation NATIVE_PROTOCOL.md. Pas de serveur public, distribution de tâches distante, extensions arbitraires ni compatibilité MCP complète. Tests HTTP réels locaux et adaptateur sur doubles/registre local ajoutés. CLI Modern Web Guidance non exécutée dans cette session GitHub.
+
+## V21 — Deep Audit Engine (Node/CI)
+Lecture publique jusqu'à 1 Mio par fichier, inventaire plafonné à 10000 fichiers, lots de trois. Vérification du SHA Git des blobs; analyse syntaxique JSON, JavaScript (Node --check), Python (AST, sans exécuter le programme). Les autres extensions ajoutées TS/TSX/JSX/YAML/TOML/SQL/SH restent heuristiques. Références relatives JS/TS vérifiées de manière approximative, pas de résolution complète des bundlers. Checkpoints atomiques tous les dix lots et par dépôt, reprise locale explicite FLEET_RESUME=1 avec le même fichier rapport, version, liste et commit. Les runners GitHub ne restaurent pas automatiquement les anciens artefacts. Le SDK historique conserve ses limites et son contrôle séparé pour les petits fichiers. Aucun transfert IA, aucune exécution de code projet, aucun accès privé. Les fichiers au-delà des limites et les arbres tronqués restent signalés; les alertes heuristiques ne sont pas des vulnérabilités confirmées.
+
+## V22 — Autonomous Repair Engine (controlled, local Node CLI)
+First deterministic rules: remove a leading JSON BOM and trailing commas outside strings, only if the original is invalid and the result parses. No guesses for JavaScript/Python or missing JSON values. Up to 3 existing files, 120000 bytes each, aggregate publication limit unchanged. Blob integrity and existing publication policy checked. Secrets detected by existing heuristics block proposals; no source in diagnostic logs. Semantic intent and functional tests are not verified. Command: node scripts/repair.mjs Nikoju1977/REPO main proposal.json data.json [other.json ...]. Output uses exclusive creation, no overwrite. Optional read token CMX_GITHUB_READ_TOKEN. Review the JSON proposal locally, then use scripts/publish.mjs for separate inspection and explicit approval digest to create a draft PR. No automatic publication, merge, execution or provider call. Browser UI unchanged. Do not commit proposal files containing project source.
+
+## V23 — Autonomous Developer Runtime (phase 1, Node CLI)
+Repair parser-confirmed JavaScript/Python syntax errors with the existing 3-role team. Select 1–3 public source files, each <=12 KB, exact blob hashes, chosen provider. `node scripts/developer.mjs Nikoju1977/REPO main mistral proposal.json 'Corriger la syntaxe' src/app.js` prepares an approval digest without AI calls. Repeat with `--approve DIGEST` to authorize source transfer, using AUTOCODER_ACCESS_TOKEN (existing production endpoint), optional CMX_GITHUB_READ_TOKEN. Max 3 calls, possible charges, no automatic retry. Verify candidate syntax and scope, block added sensitive patterns and detected secrets, record before/after SHA-256 and syntax. No functional proof or automatic merge. Existing publisher remains separate. Python/JS parser only, no arbitrary execution environment. No external live AI test without configured credentials. Browser interface unchanged.
+
+### V23 — Optional isolated fixture comparator
+Linux only, trusted local Docker daemon required; user supplies an already-installed immutable image ID (sha256:...), original file contents matching proposal blob hashes, candidate proposal and their own small test harness. See `scripts/sandbox.mjs`: input JSON `{proposal,originals:[{path,content}],harness,image,language:'javascript'|'python'}`. First run `node scripts/sandbox.mjs spec.json report.json` for approval digest, then repeat with `--approve DIGEST`. Two temporary read-only fixtures, same harness and image, no network, no image pull, non-root, dropped capabilities, 256 MB RAM, 1 CPU, 64 pids, 20 s each. No repo or credentials mounted, no source/test output logged, temporary files cleaned up. Reports bind the fixture to proposal digest and image; local reports are not signed attestations. Docker isolation is not absolute; use only reviewed fixtures and trusted images. No dependency install, full-repo integration, browser test, remote Docker or physical device test. CI tests command construction and mocked lifecycle, not actual Docker execution. A passing fixture is not proof of semantic correctness.
+
+### Fleet audit scheduling
+Full fleet runs now require a deliberate workflow_dispatch (once available on the default branch) or adding the `fleet-audit` label to a PR targeting main. Normal commits no longer launch another full fleet scan. Existing runs are not canceled by this change. Recent HTTP 403 errors indicate a quota or access limitation; the exact cause is not established by the current logs. Ordinary CI remains automatic.
+
+### Real repository integration
+Dedicated PR workflow fetches two immutable commits of the public Lovestronautes repository via Git (not the REST API), verifies three actual blobs, checks syntax, invokes the local workflow and SDK, and runs a reviewed regression fixture in two actual Docker containers. CI explicitly prepares the official Node image, records its local immutable ID, then uses the V23 sandbox without network. No external AI calls, no target repository edits, no production promotion. Report includes exact commits, hashes and execution results. No claim of whole-application validation.
+
+### Real public fleet
+Pinned public inventory of 53 repository names from the owner listing, no private names. Shallow Git fetch (not REST), resolved commit recorded, no checkout or project script execution. All eligible regular text blobs up to 1 MiB (max 10000/repo) audited in batches of three. Native classical workflow and SDK checks for compatible files, isolated Docker verifies SHA-1 and UTF-8 of the same selected blobs, max 64 MiB staged per repo, excludes possible secrets and capped findings. Report identifies unsupported, oversized, partial or failed coverage. Docker integrity checks are not functional application tests. Real functional comparison remains the targeted reviewed fixture workflow. No AI or target edits. GitHub runners must allow public Git reads and Docker image preparation.
+
+### Parser refinement after real fleet
+Python AST reads UTF-8 bytes so a leading BOM is interpreted as in a source file. Anonymous JS function expressions are reported separately as valid_expression when wrapped syntax parses, not as verified standalone scripts or confirmed host compatibility. A targeted workflow rechecks the exact 12 Wan2GP rejections and lists oversized source paths. Real fleet now requires the real-fleet PR label or manual workflow dispatch when available on the default branch; no automatic full scan on ordinary commits.
+
+## V24 — persistent local maintenance ledger
+Node CLI `node scripts/maintenance.mjs ledger.json seed` imports 4 historically verified fixture comparisons, 2 parser rejections and 2 coverage limits from exact public commits. `status`, `import REPORT.json GITHUB_RUN_URL`, `move ID STATE [PROOF_JSON]`, `resume` are explicit operations. Deduplicates repo/commit/path/blob/code, batches max 3, priority by finding class, metadata only, atomic temp+rename and exclusive lock. Remove an abandoned .lock only after verifying no writer remains. Running state can be returned to queued; no job execution by ledger itself. Imported evidence is a reference, not authenticated by CLI, and evidence_recorded never means production verified. No changes to browser UI or automatic deployment; no private source. Keep local ledger outside Git checkout.
+
+### Nexus endurance candidate
+Hash-pinned repair of deployed 17.5 video.js; optional 15 fps render and 5 fps thumbnail cadence, 1.2 Mbps video recorder, direct WebM writable file on compatible browsers with explicit file picker, 16 MiB pending write cap and 5-hour target limit. Memory mode remains capped at 10 min / 120 MiB preventive stop. No audio, no streaming changes, no automatic file recovery after tab or OS crash; writable destination commits on close. Hard cap may produce partial output. Actual Chromium encoder smoke and mocked writable destination test; physical disk, Safari, five-hour endurance remain unverified. No production change; candidate artifact preserved.
+
+### V25 — local maintenance supervisor
+Use `node scripts/maintenance.mjs /local/ledger.json seed`, then `node scripts/supervisor.mjs /local/ledger.json status|plan`, `html /local/supervisor.html`, or `claim PLAN_DIGEST`. The claim reserves at most three exact queue entries using a revision-bound digest under the existing exclusive ledger lock; no execution or repo writes. An explicit `resume` may release interrupted running records only when no operator is working. HTML is escaped, static, local, and created without overwriting. Historical release records link to verified post-merge CI and Pages runs, not live verification. No private repo publication, no paid calls, no network access from the supervisor. Review any local report before sharing.
+
+#### WanGP contextual reconciliation
+`node scripts/maintenance.mjs /local/ledger.json reconcile-wan` explicitly records the exact-version historical compiler proof and cancels the intentional Gradio fragment finding. A new coverage issue tracks GPU and numerical checks on the corrected draft commit. It does not touch running reservations, other source revisions or terminal operator decisions, and performs no network access or publication. Run evidence: 45522322331. No production change.
+
+## V26 — Agents de maintenance déterministes
+
+Importer d’abord un rapport de flotte avec `scripts/maintenance.mjs`, puis lancer
+`node scripts/maintenance-agents.mjs LEDGER.json PRIVATE_OUTPUT_DIR` (Node 20+).
+Le répertoire de sortie doit exister, être privé et rester hors du dépôt.
+Le superviseur sélectionne jusqu’à trois erreurs JSON confirmées en attente, toutes applications
+publiques du registre confondues. L’agent GitHub vérifie le commit de la branche par défaut
+et l’empreinte du fichier. Le moteur de réparation propose les corrections JSON prises en
+charge par V22 et vérifie la syntaxe avant et après. Le rapport signale les candidats à revoir,
+les sources ayant changé et les échecs d’accès. Les propositions existantes ne sont pas écrasées.
+
+Lancer la commande sur une machine de travail ou avec son ordonnanceur local après import du
+rapport. `CMX_GITHUB_READ_TOKEN` est facultatif. Les propositions utilisent le format de
+`scripts/publish.mjs` pour inspection et publication en PR brouillon après approbation.
+Les autres types de régression nécessitent une intervention. Aucune exécution du code cible,
+aucun appel IA, aucune fusion et aucun déploiement dans ce mode.
+
+## V27 — Publication après comparaison fonctionnelle
+
+Réunir une proposition Code Mode Pro et un scénario de régression relu dans le format
+`spec.json` de V23. Exécuter `node scripts/regression-publish.mjs spec.json`
+pour obtenir l’empreinte de la proposition, du scénario et de l’image Docker.
+Relancer avec `--approve EMPREINTE` et `CMX_GITHUB_TOKEN` configuré.
+Le même scénario est exécuté avant et après, dans Docker sans réseau.
+La PR brouillon est créée uniquement si le scénario échoue avant et réussit après, et
+si GitHub confirme que le commit source et les blobs sont toujours d’actualité.
+La PR contient les empreintes du scénario et de l’image utilisée. Le scénario et le
+patch sont fournis en entrée. Cette commande ne modifie pas la branche cible.
+
+## V28 — Génération d’un correctif de régression
+
+Préparer un fichier local `mission.json` avec les clés `mission`, `harness`, `image` et
+`language`. `mission` contient `repo`, `branch`, `commit`, `provider`, `prompt` et
+`files` (1 à 3 fichiers publics JavaScript ou Python, chacun avec `path`, `sha` Git
+et `content`). Décrire un défaut fonctionnel et le résultat attendu dans `prompt`.
+Le scénario Docker relu utilise les fichiers modifiés du candidat et reste local.
+
+`node scripts/regression-candidate.mjs mission.json spec.json` prépare l’empreinte
+du transfert de source. Relancer avec `--approve EMPREINTE` et
+`AUTOCODER_ACCESS_TOKEN` pour solliciter l’architecte, le développeur et le critique.
+Le transport utilise le fournisseur configuré, jusqu’à trois appels potentiellement payants.
+Le candidat reste limité aux fichiers sélectionnés et subit les vérifications statiques.
+La commande crée un `spec.json` local compatible avec `regression-publish.mjs`.
+L’exécution du test et la création de la PR brouillon utilisent l’approbation V27 séparée.

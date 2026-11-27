@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "targets": [
+    {
+      "repo": "the-lovestronautes-machine",
+      "commit": "93c6db320164f5aa799b106e90ad37da798c4d27",
+      "pagesRun": null,
+      "files": [
+        "index.html",
+        "sw.js",
+        "composition-pro.js",
+        "manifest.json"
+      ]
+    },
+    {
+      "repo": "oracle-du-jardinier",
+      "commit": "b62442ec1a9bee5516a593cff0ddebcb22ab72b8",
+      "pagesRun": 45525523910,
+      "files": [
+        "index.html",
+        "sw.js",
+        "manifest.webmanifest"
+      ]
+    },
+    {
+      "repo": "Neural-Art-mars-2026",
+      "commit": "1877fc6dcb1862219b4c7e7d2deef31960b236b7",
+      "pagesRun": null,
+      "files": [
+        "index.html",
+        "manifest.json",
+        "sw.js"
+      ]
+    },
+    {
+      "repo": "ia-studio-cine",
+      "commit": "8c91b796716bba1b9208ae374d3a79262bc7a43e",
+      "pagesRun": null,
+      "files": [
+        "index.html",
+        "manifest.json"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {simulateCircuit,quantumPresets} from '../quantum-core.mjs';
+import {readConnector} from '../code-mode-x-connectors.mjs';
+import {createNativeBus} from '../code-mode-x-tools.mjs';
+const close=(a,b)=>assert.ok(Math.abs(a-b)<1e-12);
+test('Bell and GHZ correlations and normalization',()=>{for(const key of ['bell','ghz']){const r=simulateCircuit(quantumPresets[key]);assert.equal(r.outcomes.length,2);close(r.norm,1);assert.equal(r.outcomes[0].state,'0'.repeat(r.qubits));assert.equal(r.outcomes[1].state,'1'.repeat(r.qubits));r.outcomes.forEach(x=>close(x.probability,.5));}});
+test('interference, complex phase and rotation',()=>{const r=simulateCircuit(quantumPresets.interference);assert.equal(r.outcomes[0].state,'0');close(r.outcomes[0].probability,1);const y=simulateCircuit({qubits:1,gates:[{gate:'Y',target:0}]});close(y.outcomes[0].im,1);const x=simulateCircuit({qubits:1,gates:[{gate:'RX',target:0,theta:Math.PI}]});close(x.outcomes[0].probability,1);assert.equal(x.outcomes[0].state,'1');});
+test('SWAP preserves state and bounds reject invalid circuit',()=>{const r=simulateCircuit({qubits:2,gates:[{gate:'X',target:0},{gate:'SWAP',target:1,control:0}]});assert.equal(r.outcomes[0].state,'10');assert.throws(()=>simulateCircuit({qubits:13,gates:[]}));assert.throws(()=>simulateCircuit({qubits:1,gates:[{gate:'CX',target:0,control:0}]}));});
+test('public REST uses fixed endpoint and strips unknown response fields',async()=>{const r=await readConnector('github.repository',{repo:'Niko/Audio'},{fetchImpl:async(url,opts)=>{assert.equal(url,'https://api.github.com/repos/Niko/Audio');assert.equal(opts.credentials,'omit');return new Response(JSON.stringify({private:false,full_name:'Niko/Audio',default_branch:'main',secret:'not returned'}));}});assert.equal(r.repository,'Niko/Audio');assert.equal(r.secret,undefined);await assert.rejects(readConnector('other',{}));});
+test('quantum and connectors require separate explicit permissions',async()=>{await assert.rejects(createNativeBus().call('quantum.simulate',{circuit:'{}'}));await assert.rejects(createNativeBus().call('connector.read',{id:'autocoder.status'}));const r=await createNativeBus({permissions:['quantum.compute']}).call('quantum.simulate',{circuit:JSON.stringify(quantumPresets.bell)});close(r.result.norm,1);});
