@@ -3,6 +3,7 @@ import {createHash,randomUUID} from 'node:crypto';
 import {audit,validateFiles} from './code-mode-x.mjs';
 import {parseRepo} from './code-mode-x-github.mjs';
 const SHA=/^[a-f0-9]{40}$/;
+const SHA256=/^[a-f0-9]{64}$/;
 const safePath=p=>typeof p==='string'&&p.length<=300&&/^[A-Za-z0-9_./-]+$/.test(p)&&!p.split('/').some(s=>!s||s==='.'||s==='..'||s.startsWith('.'))&&!/(^|\/)(?:node_modules|vendor|dist|build|coverage|credentials[^/]*|secrets?[^/]*)(\/|$)/i.test(p)&&!/(^|\/)(?:package(?:-lock)?\.json|vercel\.json|manifest\.webmanifest|AGENTS\.md|CODEOWNERS)$/i.test(p)&&/\.(?:py|html|css|js|mjs|cjs|md|json)$/i.test(p);
 const validBranch=b=>typeof b==='string'&&b.length<=150&&/^[A-Za-z0-9_./-]+$/.test(b)&&!b.includes('..')&&!b.includes('//')&&!b.startsWith('/')&&!b.endsWith('/')&&!b.split('/').some(s=>s.startsWith('.')||s.endsWith('.lock'));
 export function validateProposal(raw){
@@ -45,10 +46,19 @@ export async function inspectProposal(raw,request){
  });
  return {p,base,tree:commit.tree.sha,entries,digest:proposalDigest(raw)};
 }
-export async function publishDraft(raw,{request,approval,uuid=randomUUID}={}){
+export async function publishDraft(raw,{request,approval,uuid=randomUUID,regressionEvidence}={}){
  const inspected=await inspectProposal(raw,request);
  const {p,base,tree,entries,digest}=inspected;
  if(approval!==digest)throw Error('Approbation SHA-256 exacte obligatoire');
+ const tested=regressionEvidence?.status==='fixture_improved'&&regressionEvidence.testsExecuted===true&&
+  regressionEvidence.before?.status==='failed'&&regressionEvidence.after?.status==='passed'&&
+  regressionEvidence.manifest?.proposalDigest===digest&&
+  SHA256.test(regressionEvidence.manifest?.harnessSha256??'')&&/^sha256:[a-f0-9]{64}$/.test(regressionEvidence.manifest?.image??'');
+ if(regressionEvidence&&!tested)throw Error('Preuve de régression incompatible');
+ const validation=tested
+  ? 'Scénario Docker local : échec avant, réussite après. SHA-256 du scénario : '+regressionEvidence.manifest.harnessSha256+
+    '. Image : '+regressionEvidence.manifest.image+'. Validation limitée à ce scénario.'
+  : 'Tests du code proposé non exécutés par Code Mode Pro.';
  const suffix=uuid();if(typeof suffix!=='string'||!/^[a-f0-9-]{8,50}$/i.test(suffix))throw Error('Identifiant de branche invalide');
  const branch='maintenance/cmx-'+p.commit.slice(0,8)+'-'+suffix;
  const newTree=await request('POST',base+'/git/trees',{base_tree:tree,tree:entries});
@@ -59,7 +69,7 @@ export async function publishDraft(raw,{request,approval,uuid=randomUUID}={}){
  if(head?.object?.sha!==p.commit)throw Error('Branche source modifiée pendant la préparation');
  await request('POST',base+'/git/refs',{ref:'refs/heads/'+branch,sha:newCommit.sha});
  try{
-  const pr=await request('POST',base+'/pulls',{title:'Code Mode Pro — proposition à vérifier',head:branch,base:p.branch,draft:true,body:'Proposition approuvée pour revue. Commit source : '+p.commit+'. SHA-256 : '+digest+'. Tests du code proposé non exécutés par Code Mode Pro. Vérifier les changements et les contrôles CI avant fusion.'});
-  return {status:'draft_created',branch,commit:newCommit.sha,prNumber:pr.number,url:pr.html_url,testsExecuted:false};
- }catch{return {status:'branch_created_pr_unconfirmed',branch,commit:newCommit.sha,testsExecuted:false};}
+  const pr=await request('POST',base+'/pulls',{title:'Code Mode Pro — proposition à vérifier',head:branch,base:p.branch,draft:true,body:'Proposition approuvée pour revue. Commit source : '+p.commit+'. SHA-256 : '+digest+'. '+validation+' Vérifier les changements et les contrôles CI avant fusion.'});
+  return {status:'draft_created',branch,commit:newCommit.sha,prNumber:pr.number,url:pr.html_url,testsExecuted:tested};
+ }catch{return {status:'branch_created_pr_unconfirmed',branch,commit:newCommit.sha,testsExecuted:tested};}
 }
