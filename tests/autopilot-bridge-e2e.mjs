@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
+import {TARGET} from '../innovator-native.mjs';
 const base=process.env.AUTOCODER_URL||'http://127.0.0.1:4173';
 const repo='Nikoju1977/Audio',inbox='Nikoju1977/Studio-Niko-Autopilot-Inbox',commit='a'.repeat(40),tree='b'.repeat(40),blob='c'.repeat(40);
 const source='const answer=42;\n';
@@ -20,6 +21,10 @@ try{
   const u=new URL(route.request().url()),path=u.pathname;
   let data;
   if(path==='/users/Nikoju1977/repos')data=[{full_name:repo,private:false,archived:false,default_branch:'main',description:'Synthé'}];
+  else if(path==='/repos/'+TARGET.repo)data={full_name:TARGET.repo,private:false,archived:false,default_branch:'main'};
+  else if(path==='/repos/'+TARGET.repo+'/commits/'+TARGET.commit)data={sha:TARGET.commit,commit:{tree:{sha:tree}}};
+  else if(path==='/repos/'+TARGET.repo+'/git/trees/'+tree)data={truncated:false,tree:TARGET.paths.map((path,i)=>({path,type:'blob',mode:'100644',sha:String(i+1).repeat(40),size:Buffer.byteLength(source)}))};
+  else if(TARGET.paths.some((_,i)=>path==='/repos/'+TARGET.repo+'/git/blobs/'+String(i+1).repeat(40)))data={sha:path.split('/').at(-1),encoding:'base64',size:Buffer.byteLength(source),content:Buffer.from(source).toString('base64')};
   else if(path==='/repos/'+repo)data={full_name:repo,private:false,archived:false,default_branch:'main'};
   else if(path==='/repos/'+repo+'/commits/main')data={sha:commit,commit:{tree:{sha:tree}}};
   else if(path==='/repos/'+repo+'/git/trees/'+tree)data={truncated:false,tree:[{path:'app.js',type:'blob',mode:'100644',sha:blob,size:Buffer.byteLength(source)}]};
@@ -58,6 +63,17 @@ try{
  assert.equal(await page.getByRole('link',{name:'Ticket privé #19'}).getAttribute('href'),'https://github.com/'+inbox+'/issues/19');
  assert.equal(await send.isDisabled(),true);
  assert.ok(await page.evaluate(()=>document.body.scrollWidth<=innerWidth+1),'Mobile overflow');
+ const targeted=page.locator('#innovation-start');
+ assert.equal(await targeted.isDisabled(),true);
+ assert.equal(roles.length,4);
+ await page.locator('#innovation-consent').check();
+ await targeted.click();
+ await page.waitForFunction(()=>document.querySelector('#innovation-status').textContent.includes('idée(s) reçue(s)'));
+ const innovation=JSON.parse(await page.locator('#innovation-result').textContent());
+ assert.equal(innovation.repo,TARGET.repo);assert.equal(innovation.commit,TARGET.commit);assert.equal(innovation.providerCalls,1);assert.equal(innovation.testsExecuted,false);assert.equal(innovation.publicationAuthorized,false);
+ assert.deepEqual(roles,['innovator','architect','developer','critic','innovator']);assert.equal(transfers.length,1);
+ await page.waitForFunction(()=>document.querySelector('#innovation-start').disabled&&!document.querySelector('#innovation-consent').checked);
  assert.deepEqual(errors,[]);
+ console.log('PASS targeted Innovator: consent, pinned revision, one mocked Agnes request, no transfer or publish');
  console.log('PASS Autopilot bridge: simulated public-source agents, private mailbox readiness, explicit review and single transfer; no real GitHub write');
 }finally{await browser.close();}
