@@ -21,3 +21,17 @@ export function makeMission({repo,goal,tool}={}){
  const t=TOOLS.find(t=>t.id===tool);if(!t)throw Error('Outil inconnu');
  return {schema:'niko-omni-mission-v1',repository:repo,tool:t.id,goal:goal.trim(),instruction:'Proposer une modification limitée et justifiée. Préserver les licences et la confidentialité. Ne pas publier, fusionner, déployer ou accéder aux secrets. Fournir diff, plan de tests et preuves disponibles. Toute modification exige une revue humaine.',status:'review_required',testsExecuted:false};
 }
+
+export function routeProject(repo){
+ if(typeof repo!=='string'||repo.length>150)throw Error('Dépôt invalide');
+ const name=repo.split('/').at(-1).toLowerCase();
+ const resources=['openhands','llm','free'];
+ if(/ron|assist|agent|coder|bot|ai|vision/.test(name))resources.push('langflow','ollama','mcp');
+ if(/earth|street|radar|job|jardin|delivery|map/.test(name))resources.push('apis','scrapling','mcp');
+ if(/music|rave|groove|cine|3d|n8v|audio/.test(name))resources.push('awesome','apis');
+ return [...new Set(resources)].map(id=>TOOLS.find(t=>t.id===id));
+}
+export function autoMission(repo){
+ const tools=routeProject(repo);
+ return {tools:tools.map(t=>t.id),guidance:'Ressources candidates (non exécutées) : '+tools.map(t=>t.name).join(', ')+'. Priorise un correctif vérifiable, sans nouvelle dépendance sauf nécessité démontrée. Indique les tests à exécuter et ne prétends pas les avoir exécutés.'};
+}
