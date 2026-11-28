@@ -13,3 +13,6 @@ Les adaptateurs effectuent des appels HTTP locaux avec délai et taille bornés.
 
 ## Validation
 npm test ; npm run test:e2e. Les tests OMNI utilisent un transport simulé et ne prouvent pas le fonctionnement de fournisseurs réels. Vérifier les campagnes, les contrôles de budget et la revue avant publication.
+
+## Audit de parc
+`node scripts/omni-portfolio.mjs` inventorie les marqueurs de technologie, les scripts Node déclarés et le dernier workflow retourné sur la branche principale des dépôts publics. Aucun code cible exécuté. Le workflow OMNI portfolio read-only est manuel ou hebdomadaire après fusion dans la branche par défaut. Les dépôts privés ne sont jamais inclus dans les artefacts CI. Pour un audit privé local uniquement, configurer OMNI_READ_TOKEN avec accès en lecture aux dépôts concernés et lancer `node scripts/omni-portfolio.mjs --include-private` ; conserver le rapport hors publication. Les statuts d'inventaire ne prouvent pas la réussite des tests. Les erreurs API sont explicites, notamment les limitations de jeton et quotas. Aucune installation automatique de dépendances non vérifiées.
