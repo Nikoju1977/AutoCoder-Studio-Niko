@@ -3,7 +3,7 @@ import {catalog,runBatch,readCursor,CURSOR,MAX_REPOS,MAX_CALLS,approvedExport,re
 import {bridgeStatus,sendReview} from './review-bridge-client.mjs';
 const $=id=>document.getElementById(id);
 let authenticated=false,controller=null,entries=[],sessionBusy=false,bridgeReady=false,bridgeBusy=false,bridgeControls=[],receipts=new WeakMap();
-function state(){const busy=Boolean(controller)||sessionBusy||bridgeBusy;$('start').disabled=!authenticated||busy;$('innovation-start').disabled=!authenticated||busy||!$('innovation-consent').checked;$('innovation-consent').disabled=!authenticated||busy;$('stop').disabled=!controller;$('innovation-stop').disabled=!controller;$('login').disabled=authenticated||busy;$('logout').disabled=!authenticated||busy;$('token').disabled=authenticated||busy;$('reset').disabled=busy;$('bridge-refresh').disabled=!authenticated||busy;for(const sync of bridgeControls)sync();}
+function state(){const busy=Boolean(controller)||sessionBusy||bridgeBusy;$('omni-budget').disabled=busy;$('consent').disabled=busy;$('start').disabled=!authenticated||busy;$('innovation-start').disabled=!authenticated||busy||!$('innovation-consent').checked;$('innovation-consent').disabled=!authenticated||busy;$('stop').disabled=!controller;$('innovation-stop').disabled=!controller;$('login').disabled=authenticated||busy;$('logout').disabled=!authenticated||busy;$('token').disabled=authenticated||busy;$('reset').disabled=busy;$('bridge-refresh').disabled=!authenticated||busy;for(const sync of bridgeControls)sync();}
 async function session(body){
  const r=await fetch('/api/session',{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',redirect:'error',...(body?{headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{})});
  if(!r.ok)throw Error('Session HTTP '+r.status);return r.json();
@@ -23,7 +23,7 @@ $('logout').onclick=async()=>{if(sessionBusy||controller||bridgeBusy)return;sess
 function render(){
  $('results').replaceChildren();bridgeControls=[];
  for(const entry of entries){
-  const el=document.createElement('section'),h=document.createElement('h3'),p=document.createElement('p');h.textContent=entry.repo;p.textContent=entry.status+(entry.reason?' — '+entry.reason:'')+' · tests applicatifs non exécutés';el.append(h,p);
+  const el=document.createElement('section'),h=document.createElement('h3'),p=document.createElement('p');h.textContent=entry.repo;p.textContent=entry.status+(entry.reason?' — '+entry.reason:'')+' · tests applicatifs non exécutés'+(entry.omniTools?.length?' · ressources candidates : '+entry.omniTools.join(', '):'');el.append(h,p);
   if(entry.proposal){
    const details=document.createElement('details'),summary=document.createElement('summary');summary.textContent='Comparer '+entry.proposal.changes.length+' correction(s)';details.append(summary);
    for(const c of entry.proposal.changes){const heading=document.createElement('h4'),pre=document.createElement('pre');heading.textContent=c.path;pre.textContent='AVANT\n'+(entry.original.find(x=>x.path===c.path)?.content||'')+'\n\nAPRÈS\n'+c.content;details.append(heading,pre);}
@@ -51,19 +51,30 @@ function render(){
 $('start').onclick=async()=>{
  if(!authenticated||controller||sessionBusy||bridgeBusy)return;
  if(!$('consent').checked){$('progress').textContent='Autorise les appels Agnes avant le lancement.';return;}
- if(entries.some(x=>x.proposal&&!receipts.has(x))&&!confirm('Des propositions ne sont pas transmises. Le prochain lot efface leur affichage. Continuer ?'))return;
- controller=new AbortController();state();entries=[];receipts=new WeakMap();render();
+ // Preserve pending proposals across runs in this page.
+ controller=new AbortController();state();render();
  try{
   $('progress').textContent='Inventaire public GitHub…';
   const rows=await catalog({signal:controller.signal});
   let cursor='';try{cursor=readCursor(localStorage);}catch{}
   $('inventory').textContent=rows.length+' dépôts publics admissibles · reprise après '+(cursor||'début');
-  const r=await runBatch({rows,cursor,signal:controller.signal,limit:MAX_REPOS,onProgress:({repo,stage,calls,cursor,entry})=>{
-   $('progress').textContent=repo+' · '+stage+' · '+calls+'/'+MAX_CALLS+' appels maximum';
-   if(entry){entries.push(entry);render();}
+  const batchBudget=Number($('omni-budget').value);
+  if(![1,3,10,20].includes(batchBudget))throw Error('Budget invalide');
+  let total=0,complete=false,blocked=false;
+  for(let i=0;i<batchBudget&&!controller.signal.aborted;i++){
+   const before=cursor;
+   const r=await runBatch({rows,cursor,signal:controller.signal,limit:MAX_REPOS,onProgress:({repo,stage,calls,cursor:next})=>{
+    $('progress').textContent=repo+' · '+stage+' · '+(total+calls)+'/'+(batchBudget*MAX_CALLS)+' appels maximum';
+    // Persist only after the batch results have been added to the review list.
+   }});
+   entries.push(...r.results);render();total+=r.calls;cursor=r.cursor;
    if(cursor)try{localStorage.setItem(CURSOR,cursor);}catch{}
-  }});
-  entries=r.results;render();$('progress').textContent=(r.complete?'Catalogue parcouru':'Lot terminé ou arrêté')+' · '+r.calls+' appels tentés · '+r.results.length+' dépôt(s). Aucun push. Reprendre pour le lot suivant.';
+   complete=r.complete;
+   blocked=r.results.some(e=>['blocked','cancelled'].includes(e.status));
+   if(complete||blocked||cursor===before)break;
+  }
+  $('progress').textContent=(controller.signal.aborted?'Arrêté':blocked?'Bloqué : vérifier le dernier dépôt':complete?'Catalogue parcouru':'Budget de lots atteint')+' · '+total+' appels tentés · '+entries.length+' dépôt(s). Aucun push. Propositions à revoir.';
+
  }catch(e){$('progress').textContent=String(e.message||e);}
  finally{controller=null;$('consent').checked=false;state();await refresh();}
 };
