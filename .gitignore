@@ -15,3 +15,6 @@ id_ed25519
 .dev.vars
 .dev.vars.*
 !.dev.vars.example
+
+omni-private-report.json
+omni-public-report.json
